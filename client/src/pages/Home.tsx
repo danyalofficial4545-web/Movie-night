@@ -1,25 +1,20 @@
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { Streamdown } from 'streamdown';
+import { ArrowRight, Clapperboard, Film, PlusCircle, Sparkles } from "lucide-react";
+import { useLocation } from "wouter";
+import { MemberHeader } from "@/components/MemberHeader";
+import { ProMovieGuard, useProMovieMember } from "@/components/ProMovieGuard";
+import { trpc } from "@/lib/trpc";
 
-/**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Best Practices, Design Guide and Common Pitfalls
- */
-export default function Home() {
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
+function EmptyHome() {
+  const [, setLocation] = useLocation();
+  const { token, data: member } = useProMovieMember();
+  const catalog = trpc.promovie.catalog.useQuery({ token }, { enabled: Boolean(token) });
+  if (!member) return null;
+  const isEmpty = !catalog.data?.movies.length;
 
-  return (
-    <div className="min-h-screen flex flex-col">
-      <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
-      </main>
-    </div>
-  );
+  return <div className="min-h-screen bg-[#0A0A0A] text-white"><MemberHeader member={member} /><main>
+    <section className="relative isolate overflow-hidden"><div className="absolute inset-0 bg-[url('/manus-storage/promovie-abstract-stage_232bc150.png')] bg-cover bg-center opacity-50" /><div className="absolute inset-0 bg-gradient-to-r from-[#0A0A0A] via-[#0A0A0A]/85 to-[#0A0A0A]/25" /><div className="container relative flex min-h-[440px] items-center py-20"><div className="max-w-2xl"><span className="inline-flex items-center gap-2 rounded-full border border-red-500/25 bg-red-500/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[.16em] text-red-300"><Sparkles className="h-3.5 w-3.5" />Private streaming</span><h1 className="mt-6 font-display text-6xl leading-[.88] tracking-[-.06em] sm:text-7xl">Your next watch<br /><span className="text-[#E50914]">starts here.</span></h1><p className="mt-6 max-w-lg text-base leading-7 text-zinc-300">ProMovie is ready for your collection. All titles, categories, videos, and artwork remain empty until your administrator publishes real content.</p><div className="mt-9 flex flex-wrap gap-3"><button onClick={() => setLocation("/profile")} className="primary-action inline-flex items-center gap-2">View my wallet <ArrowRight className="h-4 w-4" /></button>{member.role === "admin" && <button onClick={() => setLocation("/admin")} className="secondary-action inline-flex items-center gap-2"><PlusCircle className="h-4 w-4" />Upload your first title</button>}</div></div></div></section>
+    <section className="container py-14"><div className="mb-7 flex items-end justify-between"><div><p className="text-xs font-bold uppercase tracking-[.18em] text-[#E50914]">Library</p><h2 className="mt-2 font-display text-4xl tracking-[-.05em]">Fresh from the studio</h2></div><span className="hidden text-sm text-zinc-500 sm:block">No placeholder content.</span></div>{isEmpty ? <div className="relative overflow-hidden rounded-[1.8rem] border border-white/[.08] bg-gradient-to-br from-zinc-900/90 to-[#090909] p-7 sm:p-12"><img src="/manus-storage/promovie-empty-cinema_4c7cf40b.png" alt="Empty ProMovie collection" className="absolute -right-8 -top-12 h-52 w-52 object-contain opacity-55 sm:right-4 sm:top-0" /><div className="relative max-w-xl"><div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#E50914]/12 text-[#ff4b56]"><Film className="h-6 w-6" /></div><h3 className="mt-6 font-display text-4xl tracking-[-.05em]">The collection is empty.</h3><p className="mt-3 text-sm leading-6 text-zinc-400">There are no categories or movies yet. When your administrator uploads a real title, it will appear here with its own language, quality, video, and download settings.</p>{member.role === "admin" && <button onClick={() => setLocation("/admin")} className="secondary-action mt-7 inline-flex items-center gap-2"><Clapperboard className="h-4 w-4" />Open Admin Panel</button>}</div></div> : <div className="grid gap-4 md:grid-cols-3">{catalog.data?.movies.map(movie => <article key={movie.id} className="overflow-hidden rounded-2xl border border-white/10 bg-zinc-900"><div className="aspect-video bg-zinc-800" /><div className="p-4"><h3 className="font-bold">{movie.title}</h3><p className="mt-2 text-sm text-zinc-400">{movie.quality} · {movie.releaseYear}</p></div></article>)}</div>}</section>
+  </main></div>;
 }
+
+export default function Home() { return <ProMovieGuard><EmptyHome /></ProMovieGuard>; }
