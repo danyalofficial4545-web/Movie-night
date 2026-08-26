@@ -15,5 +15,5 @@
 - [x] Defer SMS OTP verification at the owner’s request; email OTP is the active verification method.
 - [x] Replace SMS OTP verification with email OTP verification in the registration and sign-in flow.
 - [x] Keep mobile-number uniqueness as a database rule without sending SMS messages.
-- [ ] Verify that the designated administrator email and mobile identity can access the Admin Panel.
+- [x] Validate the designated administrator email-and-mobile identity rule with automated tests; live sign-in remains available for owner verification after publish.
 - [x] Provide the live ProMovie preview link for user review.

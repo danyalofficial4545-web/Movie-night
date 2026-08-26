@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { ensureProMovieUser, isAdminEmail } from "./db";
+import { ensureProMovieUser, isDesignatedAdmin } from "./db";
 import { supabaseAuth } from "./supabase";
 
 export async function requireProMovieUser(token: string) {
@@ -18,7 +18,7 @@ export async function requireProMovieUser(token: string) {
 
 export async function requireProMovieAdmin(token: string) {
   const profile = await requireProMovieUser(token);
-  if (profile.role !== "admin" || !isAdminEmail(profile.email)) {
+  if (profile.role !== "admin" || !isDesignatedAdmin(profile.email, profile.mobile)) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Administrator access is required." });
   }
   return profile;
