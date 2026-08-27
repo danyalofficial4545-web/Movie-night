@@ -1,8 +1,8 @@
-import { createClient } from "@supabase/supabase-js";
 import { LoaderCircle, Upload, Video } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { uploadVideoToSignedUrl } from "@/lib/directVideoUpload";
 import { canDirectlyUploadLocalVideo, getPublicHttpsVideoUrl } from "@/lib/mediaUpload";
 
 type Props = {
@@ -21,14 +21,6 @@ const asBase64 = (file: File) => new Promise<{ fileName: string; contentType: st
   reader.readAsDataURL(file);
 });
 
-const configuredUrl = import.meta.env.VITE_SUPABASE_URL;
-const configuredKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
-const browserStorage = createClient(
-  /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(configuredUrl ?? "") ? configuredUrl : "https://iwhsbvrrakutsodsvjbt.supabase.co",
-  /^sb_publishable_[A-Za-z0-9_-]+$/.test(configuredKey ?? "") ? configuredKey : "sb_publishable_eCMoulv4XTyKE6gvBhGRlQ_LBwip4NF",
-  { auth: { persistSession: false, autoRefreshToken: false } },
-);
-
 export function PublicVideoPreview({ value }: { value: string }) {
   const [previewError, setPreviewError] = useState(false);
   const previewUrl = getPublicHttpsVideoUrl(value);
@@ -40,6 +32,7 @@ export function PublicVideoPreview({ value }: { value: string }) {
 export function ProMovieMediaField({ token, label, value, onChange, kind, required = false }: Props) {
   const [progress, setProgress] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadStatus, setUploadStatus] = useState("");
   const previewUrl = kind === "video" ? getPublicHttpsVideoUrl(value) : null;
   const uploadAsset = trpc.promovie.admin.uploadAsset.useMutation();
   const createVideoUpload = trpc.promovie.admin.createVideoUpload.useMutation();
@@ -59,18 +52,18 @@ export function ProMovieMediaField({ token, label, value, onChange, kind, requir
     if (!canDirectlyUploadLocalVideo(file.size)) {
       return toast.error("This Storage bucket currently accepts local video files up to 50 MB. For a larger episode, paste a public HTTPS video URL instead.");
     }
-    setUploading(true); setProgress(8);
+    setUploading(true); setProgress(null); setUploadStatus("Preparing secure upload…");
     try {
       const ticket = await createVideoUpload.mutateAsync({ token, fileName: file.name, contentType: file.type || "video/mp4", size: file.size });
-      setProgress(24);
-      const { error } = await browserStorage.storage.from(ticket.bucket).uploadToSignedUrl(ticket.path, ticket.token, file, { contentType: file.type || "video/mp4" });
-      if (error) throw error;
+      setUploadStatus("Uploading to Supabase…");
+      await uploadVideoToSignedUrl({ file, uploadUrl: ticket.uploadUrl, contentType: file.type || "video/mp4", onProgress: percent => { setProgress(percent); setUploadStatus(`Uploading to Supabase: ${percent}%`); } });
       setProgress(100);
+      setUploadStatus("Upload complete. Opening preview…");
       onChange(ticket.publicUrl);
       toast.success("Video uploaded. Preview is ready below.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Video upload failed.");
-    } finally { setUploading(false); setProgress(null); }
+    } finally { setUploading(false); window.setTimeout(() => { setProgress(null); setUploadStatus(""); }, 600); }
   };
 
   const handleFile = (file?: File) => {
@@ -86,6 +79,6 @@ export function ProMovieMediaField({ token, label, value, onChange, kind, requir
     {kind === "video" && value.trim() && !previewUrl && <p className="text-xs font-semibold text-amber-300">Paste a complete public HTTPS video URL to show a preview and save it.</p>}
     {kind === "video" && <PublicVideoPreview value={value} />}
     {progress !== null && <div className="h-2 overflow-hidden rounded-full bg-zinc-800"><div className="h-full bg-[#E50914] transition-[width] duration-200" style={{ width: `${progress}%` }} /></div>}
-    {progress !== null && <p className="text-xs font-bold text-red-300">Uploading to Supabase: {progress}%</p>}
+    {uploadStatus && <p className="text-xs font-bold text-red-300">{uploadStatus}</p>}
   </div>;
 }

@@ -15,3 +15,5 @@ The authenticated administrator sequence remains intentionally unverified becaus
 The originally supplied `test-videos.co.uk` Big Buck Bunny URL returned HTTP 404, so it cannot display usable video content. The URL input still accepts a complete HTTPS address and renders its preview container, but unavailable sources show an explicit playback warning.
 
 The working public source `https://samplelib.com/preview/mp4/sample-5s.mp4` returned `200 OK` with `video/mp4` and rendered in the browser’s native video player. The cleanup-safe nested Category → Season → Movie → Episode test saves this exact URL in both the temporary movie and temporary episode records, retrieves both URLs unchanged, and removes the temporary records.
+
+After publishing the video-preview repair, the public `/signup` route loaded successfully again on `https://earnpackpro-3nzfwkdg.manus.space/signup`. The production site is available for the final owner-authenticated administrator verification.

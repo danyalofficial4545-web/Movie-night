@@ -71,6 +71,7 @@ export async function createProMovieVideoUploadTicket(input: { ownerId: number; 
     bucket: PROMOVIE_ASSET_BUCKET,
     path,
     token: data.token,
+    uploadUrl: data.signedUrl,
     publicUrl: publicData.publicUrl,
   };
 }

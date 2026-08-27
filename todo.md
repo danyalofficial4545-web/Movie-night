@@ -61,3 +61,8 @@
 - [x] Preserve and save the entered or uploaded final video URL in both Movie and Episode records.
 - [x] Verify the supplied public Big Buck Bunny URL persists in cleanup-safe Movie/Episode data; its provider currently returns 404, so a working public MP4 was used to validate real preview playback before republishing.
 - [x] Add automated rendering coverage for the immediate administrator video preview using a working public HTTPS MP4 URL.
+- [x] Replace the artificial 24% local-upload status with genuine transfer progress or explicit pending/failure state.
+- [x] Ensure the direct video upload cannot appear indefinitely stuck on mobile browsers and retains external HTTPS URL fallback.
+- [x] Test the repaired upload status and publish the mobile uploader fix.
+- [x] Add automated coverage for actual XHR progress, timeout, and error states in the direct video uploader.
+- [ ] Save and verify a fresh public deployment containing the real-progress upload repair.

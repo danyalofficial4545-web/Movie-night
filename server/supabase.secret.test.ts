@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { createClient } from "@supabase/supabase-js";
 import { createProMovieVideoUploadTicket, ensureProMovieAssetBucket, PROMOVIE_DIRECT_VIDEO_LIMIT_BYTES, PRO_MOVIE_SUPABASE_URL, supabaseAdmin, uploadProMovieAsset } from "./supabase";
 import { createCategory, deleteCategory } from "./db";
 import { canDirectlyUploadLocalVideo, CURRENT_DIRECT_VIDEO_LIMIT_BYTES } from "../client/src/lib/mediaUpload";
@@ -67,10 +66,12 @@ describe("Supabase configuration", () => {
 
   it("uploads a small video directly with the standard signed-upload method and removes it afterward", async () => {
     const ticket = await createProMovieVideoUploadTicket({ ownerId: 0, fileName: "standard-upload-test.mp4", contentType: "video/mp4", size: 16 });
-    const browserStorage = createClient("https://iwhsbvrrakutsodsvjbt.supabase.co", "sb_publishable_eCMoulv4XTyKE6gvBhGRlQ_LBwip4NF", { auth: { persistSession: false, autoRefreshToken: false } });
     try {
-      const { error } = await browserStorage.storage.from(ticket.bucket).uploadToSignedUrl(ticket.path, ticket.token, new Blob(["test video bytes"], { type: "video/mp4" }), { contentType: "video/mp4" });
-      expect(error).toBeNull();
+      const body = new FormData();
+      body.append("cacheControl", "3600");
+      body.append("", new Blob(["test video bytes"], { type: "video/mp4" }), "standard-upload-test.mp4");
+      const response = await fetch(ticket.uploadUrl, { method: "PUT", headers: { "x-upsert": "false" }, body });
+      expect(response.ok).toBe(true);
       expect(ticket.publicUrl).toMatch(/^https:\/\/iwhsbvrrakutsodsvjbt\.supabase\.co\/storage\/v1\/object\/public\/promovie-assets\/videos\//);
     } finally {
       await supabaseAdmin.storage.from(ticket.bucket).remove([ticket.path]);
