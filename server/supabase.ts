@@ -70,6 +70,5 @@ export async function createProMovieVideoUploadTicket(input: { ownerId: number; 
     path,
     token: data.token,
     publicUrl: publicData.publicUrl,
-    endpoint: "https://iwhsbvrrakutsodsvjbt.storage.supabase.co/storage/v1/upload/resumable",
   };
 }

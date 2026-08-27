@@ -46,3 +46,9 @@
 - [ ] Raise the Supabase project or bucket file-size allowance above the current 50 MB limit before uploading a 300 MB video directly to Storage.
 - [ ] Save and auto-publish the nested Season and direct-upload build after its passing tests.
 - [ ] Verify the live site shows the updated Season hierarchy and direct-upload administrator UI after publishing.
+- [x] Remove the failing TUS upload client and replace it with a secure standard Supabase upload path for supported-size local files.
+- [x] Preserve external HTTPS video links as direct saved values for large video hosting outside the current 50 MB Supabase bucket limit.
+- [x] Apply least-privilege Supabase Storage access rather than unauthenticated public write and delete access.
+- [x] Add linked Main Category and optional Season selectors to both movie and episode forms.
+- [x] Test the Osman Ghazi → Season 1 → Episode 1 hierarchy with an external HTTPS episode URL and temporary upload validation, then clean it up.
+- [x] Validate the replacement standard signed-upload method with a temporary small video and remove the test asset afterward.
