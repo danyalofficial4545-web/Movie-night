@@ -37,6 +37,7 @@ export const categories = mysqlTable("categories", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 120 }).notNull(),
   slug: varchar("slug", { length: 140 }).notNull().unique(),
+  coverUrl: text("coverUrl"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -46,6 +47,8 @@ export const movies = mysqlTable("movies", {
   categoryId: int("categoryId").notNull().references(() => categories.id, { onDelete: "cascade" }),
   title: varchar("title", { length: 240 }).notNull(),
   description: text("description").notNull(),
+  contentType: mysqlEnum("contentType", ["movie", "series"]).default("movie").notNull(),
+  posterUrl: text("posterUrl"),
   thumbnailUrl: text("thumbnailUrl"),
   bannerUrl: text("bannerUrl"),
   videoUrl: text("videoUrl"),
@@ -58,10 +61,28 @@ export const movies = mysqlTable("movies", {
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, table => [index("movies_category_idx").on(table.categoryId)]);
 
+export const episodes = mysqlTable("episodes", {
+  id: int("id").autoincrement().primaryKey(),
+  movieId: int("movieId").notNull().references(() => movies.id, { onDelete: "cascade" }),
+  episodeNumber: int("episodeNumber").notNull(),
+  title: varchar("title", { length: 240 }).notNull(),
+  videoUrl: text("videoUrl"),
+  languageTags: json("languageTags").$type<string[]>().notNull(),
+  quality: varchar("quality", { length: 24 }).default("1080p").notNull(),
+  qualityVariants: json("qualityVariants").$type<Record<string, string>>(),
+  isPublished: boolean("isPublished").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, table => [
+  uniqueIndex("episode_movie_number_unique").on(table.movieId, table.episodeNumber),
+  index("episode_movie_idx").on(table.movieId),
+]);
+
 export const watchSessions = mysqlTable("watchSessions", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
   movieId: int("movieId").notNull().references(() => movies.id, { onDelete: "cascade" }),
+  episodeId: int("episodeId").references(() => episodes.id, { onDelete: "set null" }),
   episodeLabel: varchar("episodeLabel", { length: 120 }),
   watchedSeconds: int("watchedSeconds").default(0).notNull(),
   coinsEarned: int("coinsEarned").default(0).notNull(),
@@ -71,6 +92,7 @@ export const watchSessions = mysqlTable("watchSessions", {
 }, table => [
   uniqueIndex("watch_session_user_movie_episode_unique").on(table.userId, table.movieId, table.episodeLabel),
   index("watch_session_user_idx").on(table.userId),
+  index("watch_session_episode_idx").on(table.episodeId),
 ]);
 
 export const walletTransactions = mysqlTable("walletTransactions", {

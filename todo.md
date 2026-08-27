@@ -17,3 +17,13 @@
 - [x] Keep mobile-number uniqueness as a database rule without sending SMS messages.
 - [x] Validate the designated administrator email-and-mobile identity rule with automated tests; live sign-in remains available for owner verification after publish.
 - [x] Provide the live ProMovie preview link for user review.
+- [ ] Review the uploaded ProMovie change prompt and implement its requested website revisions.
+- [x] Replace email OTP registration with direct email/password signup and login while retaining unique mobile numbers.
+- [x] Extend categories with cover images and movies with poster images, type, and real episode folders.
+- [x] Build protected category, movie-folder, and episode-list member pages.
+- [x] Extend the Admin Panel for category covers, movie posters, series controls, and episode management.
+- [x] Replace the native video controls with the custom Bro Player gesture and playback interface.
+- [ ] Add administrator controls for real per-episode quality source variants and connect Bro Player switching to them.
+- [ ] Document the browser limitation for mobile hardware-volume button events while retaining in-player volume feedback.
+- [ ] Verify the authenticated admin upload-to-Bro-Player flow with the owner’s real content after sign-in.
+- [ ] Verify the revised live website and save a new publish-ready checkpoint.

@@ -6,11 +6,15 @@ import { systemRouter } from "./_core/systemRouter";
 import {
   createCategory,
   createDownload,
+  createEpisode,
   createMovie,
   createPendingEmailUser,
   deleteCategory,
+  deleteEpisode,
   deleteMovie,
   getAdminMetrics,
+  getCategory,
+  getEpisode,
   getMovie,
   getUserByMobile,
   grantWatchReward,
@@ -18,8 +22,10 @@ import {
   isDesignatedAdmin,
   listAllMovies,
   listCategories,
+  listEpisodesForMovie,
   listProfileData,
   listPublishedCatalog,
+  listPublishedMoviesForCategory,
   listUsersForAdmin,
   setUserBlocked,
 } from "./db";
@@ -54,7 +60,7 @@ export const appRouter = router({
         const { data, error } = await supabaseAdmin.auth.admin.createUser({
           email: input.email,
           password: input.password,
-          email_confirm: false,
+          email_confirm: true,
           user_metadata: { full_name: input.fullName, mobile: input.mobile },
         });
         if (error || !data.user) throw new TRPCError({ code: "BAD_REQUEST", message: error?.message ?? "Unable to create this account." });
@@ -63,22 +69,14 @@ export const appRouter = router({
         } catch (dbError) {
           throw new TRPCError({ code: "CONFLICT", message: "Unable to reserve this mobile number. Please use a different number." });
         }
-        const otp = await supabaseAuth.auth.signInWithOtp({ email: input.email, options: { shouldCreateUser: false } });
-        if (otp.error) throw new TRPCError({ code: "BAD_REQUEST", message: otp.error.message });
-        return { requiresOtp: true, email: input.email };
-      }),
-      verifyOtp: publicProcedure.input(z.object({ email: z.string().trim().email(), code: z.string().trim().length(6) })).mutation(async ({ input }) => {
-        const { data, error } = await supabaseAuth.auth.verifyOtp({ email: input.email, token: input.code, type: "email" });
-        if (error || !data.session) throw new TRPCError({ code: "BAD_REQUEST", message: error?.message ?? "Invalid verification code." });
-        const profile = await requireProMovieUser(data.session.access_token);
-        return { token: data.session.access_token, profile };
+        const { data: sessionData, error: signInError } = await supabaseAuth.auth.signInWithPassword({ email: input.email, password: input.password });
+        if (signInError || !sessionData.session) throw new TRPCError({ code: "BAD_REQUEST", message: signInError?.message ?? "Account created, but automatic sign-in could not be completed." });
+        const profile = await requireProMovieUser(sessionData.session.access_token);
+        return { token: sessionData.session.access_token, profile };
       }),
       signIn: publicProcedure.input(z.object({ email: z.string().email(), password: z.string().min(8) })).mutation(async ({ input }) => {
         const { data, error } = await supabaseAuth.auth.signInWithPassword({ email: input.email, password: input.password });
         if (error || !data.session) throw new TRPCError({ code: "UNAUTHORIZED", message: error?.message ?? "Invalid email or password." });
-        if (!data.user.email_confirmed_at) {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Verify your email address before signing in." });
-        }
         const profile = await requireProMovieUser(data.session.access_token);
         return { token: data.session.access_token, profile };
       }),
@@ -87,6 +85,12 @@ export const appRouter = router({
     catalog: publicProcedure.input(tokenInput).query(async ({ input }) => {
       await requireProMovieUser(input.token);
       return listPublishedCatalog();
+    }),
+    category: publicProcedure.input(tokenInput.extend({ categoryId: z.number().int().positive() })).query(async ({ input }) => {
+      await requireProMovieUser(input.token);
+      const category = await getCategory(input.categoryId);
+      if (!category) throw new TRPCError({ code: "NOT_FOUND", message: "Category unavailable." });
+      return { category, movies: await listPublishedMoviesForCategory(category.id) };
     }),
     profile: publicProcedure.input(tokenInput).query(async ({ input }) => {
       const profile = await requireProMovieUser(input.token);
@@ -98,11 +102,27 @@ export const appRouter = router({
       if (!movie || !movie.isPublished) throw new TRPCError({ code: "NOT_FOUND", message: "Movie unavailable." });
       return movie;
     }),
-    rewardWatch: publicProcedure.input(tokenInput.extend({ movieId: z.number().int().positive(), activeSeconds: z.number().int().min(0).max(3600) })).mutation(async ({ input }) => {
+    movieFolder: publicProcedure.input(tokenInput.extend({ movieId: z.number().int().positive() })).query(async ({ input }) => {
+      await requireProMovieUser(input.token);
+      const movie = await getMovie(input.movieId);
+      if (!movie || !movie.isPublished) throw new TRPCError({ code: "NOT_FOUND", message: "Movie unavailable." });
+      return { movie, episodes: await listEpisodesForMovie(movie.id, true) };
+    }),
+    episode: publicProcedure.input(tokenInput.extend({ episodeId: z.number().int().positive() })).query(async ({ input }) => {
+      await requireProMovieUser(input.token);
+      const episode = await getEpisode(input.episodeId);
+      if (!episode || !episode.isPublished) throw new TRPCError({ code: "NOT_FOUND", message: "Episode unavailable." });
+      const movie = await getMovie(episode.movieId);
+      if (!movie || !movie.isPublished) throw new TRPCError({ code: "NOT_FOUND", message: "Movie unavailable." });
+      return { movie, episode };
+    }),
+    rewardWatch: publicProcedure.input(tokenInput.extend({ movieId: z.number().int().positive(), episodeId: z.number().int().positive().optional(), activeSeconds: z.number().int().min(0).max(3600) })).mutation(async ({ input }) => {
       const profile = await requireProMovieUser(input.token);
       const movie = await getMovie(input.movieId);
       if (!movie || !movie.isPublished) throw new TRPCError({ code: "NOT_FOUND", message: "Movie unavailable." });
-      return grantWatchReward({ userId: profile.id, movieId: movie.id, watchedSeconds: input.activeSeconds });
+      const episode = input.episodeId ? await getEpisode(input.episodeId) : undefined;
+      if (input.episodeId && (!episode || !episode.isPublished || episode.movieId !== movie.id)) throw new TRPCError({ code: "NOT_FOUND", message: "Episode unavailable." });
+      return grantWatchReward({ userId: profile.id, movieId: movie.id, episodeId: episode?.id, episodeLabel: episode ? `Episode ${episode.episodeNumber}: ${episode.title}` : movie.title, watchedSeconds: input.activeSeconds });
     }),
     download: publicProcedure.input(tokenInput.extend({ movieId: z.number().int().positive() })).mutation(async ({ input }) => {
       const profile = await requireProMovieUser(input.token);
@@ -111,10 +131,10 @@ export const appRouter = router({
     admin: router({
       dashboard: publicProcedure.input(tokenInput).query(async ({ input }) => { await requireProMovieAdmin(input.token); return getAdminMetrics(); }),
       categories: publicProcedure.input(tokenInput).query(async ({ input }) => { await requireProMovieAdmin(input.token); return listCategories(); }),
-      createCategory: publicProcedure.input(tokenInput.extend({ name: z.string().trim().min(2).max(120) })).mutation(async ({ input }) => {
+      createCategory: publicProcedure.input(tokenInput.extend({ name: z.string().trim().min(2).max(120), coverUrl: z.string().url().optional().or(z.literal("")) })).mutation(async ({ input }) => {
         await requireProMovieAdmin(input.token); const slug = slugify(input.name);
         if (!slug) throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a valid category name." });
-        return createCategory(input.name, slug);
+        return createCategory(input.name, slug, input.coverUrl || null);
       }),
       deleteCategory: publicProcedure.input(tokenInput.extend({ id: z.number().int().positive() })).mutation(async ({ input }) => { await requireProMovieAdmin(input.token); await deleteCategory(input.id); return { success: true }; }),
       movies: publicProcedure.input(tokenInput).query(async ({ input }) => { await requireProMovieAdmin(input.token); return listAllMovies(); }),
@@ -133,14 +153,19 @@ export const appRouter = router({
       }),
       createMovie: publicProcedure.input(tokenInput.extend({
         categoryId: z.number().int().positive(), title: z.string().trim().min(1).max(240), description: z.string().trim().min(1),
-        thumbnailUrl: z.string().url().optional().or(z.literal("")), bannerUrl: z.string().url().optional().or(z.literal("")), videoUrl: z.string().url().optional().or(z.literal("")),
+        contentType: z.enum(["movie", "series"]).default("movie"), posterUrl: z.string().url().optional().or(z.literal("")), thumbnailUrl: z.string().url().optional().or(z.literal("")), bannerUrl: z.string().url().optional().or(z.literal("")), videoUrl: z.string().url().optional().or(z.literal("")),
         languageTags: z.array(z.enum(["Urdu", "English", "Hindi"])).min(1), quality: z.enum(["720p", "1080p"]), releaseYear: z.number().int().min(1888).max(2100), downloadCost: z.number().int().min(0).default(1000), isPublished: z.boolean().default(false),
       })).mutation(async ({ input }) => {
         await requireProMovieAdmin(input.token);
-        const { token: _token, thumbnailUrl, bannerUrl, videoUrl, ...movie } = input;
-        return { id: await createMovie({ ...movie, thumbnailUrl: thumbnailUrl || null, bannerUrl: bannerUrl || null, videoUrl: videoUrl || null }) };
+        const { token: _token, posterUrl, thumbnailUrl, bannerUrl, videoUrl, ...movie } = input;
+        return { id: await createMovie({ ...movie, posterUrl: posterUrl || null, thumbnailUrl: thumbnailUrl || null, bannerUrl: bannerUrl || null, videoUrl: videoUrl || null }) };
       }),
       deleteMovie: publicProcedure.input(tokenInput.extend({ id: z.number().int().positive() })).mutation(async ({ input }) => { await requireProMovieAdmin(input.token); await deleteMovie(input.id); return { success: true }; }),
+      episodes: publicProcedure.input(tokenInput.extend({ movieId: z.number().int().positive() })).query(async ({ input }) => { await requireProMovieAdmin(input.token); return listEpisodesForMovie(input.movieId); }),
+      createEpisode: publicProcedure.input(tokenInput.extend({
+        movieId: z.number().int().positive(), episodeNumber: z.number().int().positive(), title: z.string().trim().min(1).max(240), videoUrl: z.string().url().optional().or(z.literal("")), languageTags: z.array(z.enum(["Urdu", "English", "Hindi"])).min(1), quality: z.enum(["144p", "240p", "360p", "480p", "720p", "1080p"]), qualityVariants: z.record(z.string(), z.string().url()).optional(), isPublished: z.boolean().default(false),
+      })).mutation(async ({ input }) => { await requireProMovieAdmin(input.token); const { token: _token, videoUrl, ...episode } = input; return { id: await createEpisode({ ...episode, videoUrl: videoUrl || null }) }; }),
+      deleteEpisode: publicProcedure.input(tokenInput.extend({ id: z.number().int().positive() })).mutation(async ({ input }) => { await requireProMovieAdmin(input.token); await deleteEpisode(input.id); return { success: true }; }),
       users: publicProcedure.input(tokenInput).query(async ({ input }) => { await requireProMovieAdmin(input.token); return listUsersForAdmin(); }),
       blockUser: publicProcedure.input(tokenInput.extend({ id: z.number().int().positive(), isBlocked: z.boolean() })).mutation(async ({ input }) => {
         const admin = await requireProMovieAdmin(input.token);

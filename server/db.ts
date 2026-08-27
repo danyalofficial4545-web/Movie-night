@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/mysql2";
 import {
   categories,
   downloads,
+  episodes,
   InsertUser,
   movies,
   users,
@@ -16,9 +17,7 @@ export const ADMIN_MOBILE = "03311332670";
 let database: ReturnType<typeof drizzle> | null = null;
 
 export async function getDb() {
-  if (!database && process.env.DATABASE_URL) {
-    database = drizzle(process.env.DATABASE_URL);
-  }
+  if (!database && process.env.DATABASE_URL) database = drizzle(process.env.DATABASE_URL);
   return database;
 }
 
@@ -36,29 +35,15 @@ export function isDesignatedAdmin(email?: string | null, mobile?: string | null)
   return isAdminEmail(email) && mobile?.trim() === ADMIN_MOBILE;
 }
 
-export async function createPendingEmailUser(input: { openId: string; email: string; name: string; mobile: string }) {
-  const db = await requireDb();
-  const role = isAdminEmail(input.email) ? "admin" : "user";
-  await db.insert(users).values({
-    openId: input.openId,
-    email: input.email,
-    name: input.name,
-    mobile: input.mobile,
-    loginMethod: "supabase-email",
-    role,
-  });
-}
-
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) throw new Error("User openId is required.");
   const db = await requireDb();
-  const enforcedRole = isAdminEmail(user.email) ? "admin" : "user";
   await db.insert(users).values(user).onDuplicateKeyUpdate({
     set: {
       name: user.name ?? null,
       email: user.email ?? null,
       loginMethod: user.loginMethod ?? null,
-      role: enforcedRole,
+      role: isAdminEmail(user.email) ? "admin" : "user",
       lastSignedIn: new Date(),
     },
   });
@@ -74,13 +59,19 @@ export async function getUserByMobile(mobile: string) {
   return (await db.select().from(users).where(eq(users.mobile, mobile)).limit(1))[0];
 }
 
-export async function ensureProMovieUser(input: {
-  openId: string;
-  email?: string | null;
-  name?: string | null;
-  mobile?: string | null;
-  avatarUrl?: string | null;
-}) {
+export async function createPendingEmailUser(input: { openId: string; email: string; name: string; mobile: string }) {
+  const db = await requireDb();
+  await db.insert(users).values({
+    openId: input.openId,
+    email: input.email,
+    name: input.name,
+    mobile: input.mobile,
+    loginMethod: "supabase-email",
+    role: isAdminEmail(input.email) ? "admin" : "user",
+  });
+}
+
+export async function ensureProMovieUser(input: { openId: string; email?: string | null; name?: string | null; mobile?: string | null; avatarUrl?: string | null }) {
   const db = await requireDb();
   const role = isAdminEmail(input.email) ? "admin" : "user";
   await db.insert(users).values({
@@ -117,9 +108,14 @@ export async function listCategories() {
   return db.select().from(categories).orderBy(categories.name);
 }
 
-export async function createCategory(name: string, slug: string) {
+export async function getCategory(id: number) {
   const db = await requireDb();
-  await db.insert(categories).values({ name, slug });
+  return (await db.select().from(categories).where(eq(categories.id, id)).limit(1))[0];
+}
+
+export async function createCategory(name: string, slug: string, coverUrl?: string | null) {
+  const db = await requireDb();
+  await db.insert(categories).values({ name, slug, coverUrl: coverUrl ?? null });
   return (await db.select().from(categories).where(eq(categories.slug, slug)).limit(1))[0];
 }
 
@@ -131,6 +127,11 @@ export async function deleteCategory(id: number) {
 export async function listAllMovies() {
   const db = await requireDb();
   return db.select().from(movies).orderBy(desc(movies.createdAt));
+}
+
+export async function listPublishedMoviesForCategory(categoryId: number) {
+  const db = await requireDb();
+  return db.select().from(movies).where(and(eq(movies.categoryId, categoryId), eq(movies.isPublished, true))).orderBy(desc(movies.createdAt));
 }
 
 export async function createMovie(input: typeof movies.$inferInsert) {
@@ -149,6 +150,28 @@ export async function getMovie(id: number) {
   return (await db.select().from(movies).where(eq(movies.id, id)).limit(1))[0];
 }
 
+export async function listEpisodesForMovie(movieId: number, publishedOnly = false) {
+  const db = await requireDb();
+  const condition = publishedOnly ? and(eq(episodes.movieId, movieId), eq(episodes.isPublished, true)) : eq(episodes.movieId, movieId);
+  return db.select().from(episodes).where(condition).orderBy(episodes.episodeNumber);
+}
+
+export async function getEpisode(id: number) {
+  const db = await requireDb();
+  return (await db.select().from(episodes).where(eq(episodes.id, id)).limit(1))[0];
+}
+
+export async function createEpisode(input: typeof episodes.$inferInsert) {
+  const db = await requireDb();
+  const result = await db.insert(episodes).values(input);
+  return result[0].insertId;
+}
+
+export async function deleteEpisode(id: number) {
+  const db = await requireDb();
+  await db.delete(episodes).where(eq(episodes.id, id));
+}
+
 export async function listProfileData(userId: number) {
   const db = await requireDb();
   const [transactions, watches, userDownloads] = await Promise.all([
@@ -159,7 +182,7 @@ export async function listProfileData(userId: number) {
   return { transactions, watches, downloads: userDownloads };
 }
 
-export async function grantWatchReward(input: { userId: number; movieId: number; watchedSeconds: number }) {
+export async function grantWatchReward(input: { userId: number; movieId: number; episodeId?: number | null; episodeLabel?: string | null; watchedSeconds: number }) {
   const db = await requireDb();
   const wholeMinutes = Math.floor(input.watchedSeconds / 60);
   if (wholeMinutes <= 0) return { earned: 0 };
@@ -171,6 +194,21 @@ export async function grantWatchReward(input: { userId: number; movieId: number;
       activity: "watched",
       coinsDelta: earned,
       note: `${wholeMinutes} verified active playback minute${wholeMinutes === 1 ? "" : "s"}`,
+    });
+    await tx.insert(watchSessions).values({
+      userId: input.userId,
+      movieId: input.movieId,
+      episodeId: input.episodeId ?? null,
+      episodeLabel: input.episodeLabel ?? null,
+      watchedSeconds: wholeMinutes * 60,
+      coinsEarned: earned,
+      lastPlayedAt: new Date(),
+    }).onDuplicateKeyUpdate({
+      set: {
+        watchedSeconds: sql`${watchSessions.watchedSeconds} + ${wholeMinutes * 60}`,
+        coinsEarned: sql`${watchSessions.coinsEarned} + ${earned}`,
+        lastPlayedAt: new Date(),
+      },
     });
     await tx.update(users).set({ coinBalance: sql`${users.coinBalance} + ${earned}` }).where(eq(users.id, input.userId));
   });
