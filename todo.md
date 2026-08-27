@@ -56,4 +56,8 @@
 - [x] Confirm episode files at or below the current 50 MB Supabase bucket limit use the direct secure upload path.
 - [x] Confirm a public external HTTPS URL can be stored unchanged for an episode around 300 MB.
 - [x] Enforce and test the current 50 MB local-video ceiling on the server-issued signed-upload ticket, with clear external-URL guidance for larger episodes.
-- [ ] Republish the current tested ProMovie build and provide the live link for owner issue testing.
+- [x] Republish the current tested ProMovie build and provide the live link for owner issue testing.
+- [x] Show an immediate playable video preview below each Movie and Episode video field after upload or public HTTPS URL paste.
+- [x] Preserve and save the entered or uploaded final video URL in both Movie and Episode records.
+- [x] Verify the supplied public Big Buck Bunny URL persists in cleanup-safe Movie/Episode data; its provider currently returns 404, so a working public MP4 was used to validate real preview playback before republishing.
+- [x] Add automated rendering coverage for the immediate administrator video preview using a working public HTTPS MP4 URL.

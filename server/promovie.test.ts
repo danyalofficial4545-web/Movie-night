@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ADMIN_EMAIL, isAdminEmail, isDesignatedAdmin } from "./db";
+import { getPublicHttpsVideoUrl } from "../client/src/lib/mediaUpload";
 
 describe("ProMovie role policy", () => {
   it("grants administrator status only to the configured administrator email", () => {
@@ -17,5 +18,14 @@ describe("ProMovie role policy", () => {
   it("recognizes only the configured administrator email and mobile identity", () => {
     expect(isDesignatedAdmin("muhammaddanyal4545@gmail.com", "03311332670")).toBe(true);
     expect(isDesignatedAdmin("muhammaddanyal4545@gmail.com", "03000000000")).toBe(false);
+  });
+
+  it("accepts the requested public HTTPS MP4 for preview and rejects non-HTTPS video URLs", () => {
+    const bunnyUrl = "https://test-videos.co.uk/vids/sintel/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4";
+    const reachableSampleUrl = "https://samplelib.com/preview/mp4/sample-5s.mp4";
+    expect(getPublicHttpsVideoUrl(bunnyUrl)).toBe(bunnyUrl);
+    expect(getPublicHttpsVideoUrl(reachableSampleUrl)).toBe(reachableSampleUrl);
+    expect(getPublicHttpsVideoUrl("http://example.com/video.mp4")).toBeNull();
+    expect(getPublicHttpsVideoUrl("not a video URL")).toBeNull();
   });
 });

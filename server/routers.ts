@@ -42,6 +42,8 @@ import { publicProcedure, router } from "./_core/trpc";
 
 const tokenInput = z.object({ token: z.string().min(20) });
 const mobileSchema = z.string().trim().min(8).max(32);
+const publicHttpsUrlSchema = z.string().trim().url().refine(value => value.startsWith("https://"), "Use a public HTTPS URL.");
+const optionalPublicHttpsUrlSchema = publicHttpsUrlSchema.optional().or(z.literal(""));
 const slugify = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
 
 export const appRouter = router({
@@ -155,7 +157,7 @@ export const appRouter = router({
     admin: router({
       dashboard: publicProcedure.input(tokenInput).query(async ({ input }) => { await requireProMovieAdmin(input.token); return getAdminMetrics(); }),
       categories: publicProcedure.input(tokenInput).query(async ({ input }) => { await requireProMovieAdmin(input.token); return listCategories(); }),
-      createCategory: publicProcedure.input(tokenInput.extend({ name: z.string().trim().min(2).max(120), categoryType: z.enum(["movie", "drama"]).optional().default("movie"), parentId: z.number().int().positive().optional(), coverUrl: z.string().url().optional().or(z.literal("")) })).mutation(async ({ input }) => {
+      createCategory: publicProcedure.input(tokenInput.extend({ name: z.string().trim().min(2).max(120), categoryType: z.enum(["movie", "drama"]).optional().default("movie"), parentId: z.number().int().positive().optional(), coverUrl: optionalPublicHttpsUrlSchema })).mutation(async ({ input }) => {
         await requireProMovieAdmin(input.token); const slug = slugify(input.name);
         if (!slug) throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a valid category name." });
         const parent = input.parentId ? await getCategory(input.parentId) : undefined;
@@ -192,7 +194,7 @@ export const appRouter = router({
       }),
       createMovie: publicProcedure.input(tokenInput.extend({
         categoryId: z.number().int().positive(), title: z.string().trim().min(1).max(240), description: z.string().trim().min(1),
-        contentType: z.enum(["movie", "series"]).default("movie"), posterUrl: z.string().url().optional().or(z.literal("")), thumbnailUrl: z.string().url().optional().or(z.literal("")), bannerUrl: z.string().url().optional().or(z.literal("")), videoUrl: z.string().url().optional().or(z.literal("")),
+        contentType: z.enum(["movie", "series"]).default("movie"), posterUrl: optionalPublicHttpsUrlSchema, thumbnailUrl: optionalPublicHttpsUrlSchema, bannerUrl: optionalPublicHttpsUrlSchema, videoUrl: optionalPublicHttpsUrlSchema,
         languageTags: z.array(z.enum(["Urdu", "English", "Hindi"])).min(1), quality: z.enum(["720p", "1080p"]), releaseYear: z.number().int().min(1888).max(2100), downloadCost: z.number().int().min(0).default(1000), isPublished: z.boolean().default(false),
       })).mutation(async ({ input }) => {
         await requireProMovieAdmin(input.token);
@@ -202,7 +204,7 @@ export const appRouter = router({
       deleteMovie: publicProcedure.input(tokenInput.extend({ id: z.number().int().positive() })).mutation(async ({ input }) => { await requireProMovieAdmin(input.token); await deleteMovie(input.id); return { success: true }; }),
       episodes: publicProcedure.input(tokenInput.extend({ movieId: z.number().int().positive() })).query(async ({ input }) => { await requireProMovieAdmin(input.token); return listEpisodesForMovie(input.movieId); }),
       createEpisode: publicProcedure.input(tokenInput.extend({
-        movieId: z.number().int().positive(), episodeNumber: z.number().int().positive(), title: z.string().trim().min(1).max(240), thumbnailUrl: z.string().url().optional().or(z.literal("")), videoUrl: z.string().url().optional().or(z.literal("")), languageTags: z.array(z.enum(["Urdu", "English", "Hindi"])).min(1), quality: z.enum(["144p", "240p", "360p", "480p", "720p", "1080p"]), qualityVariants: z.record(z.string(), z.string().url()).optional(), isPublished: z.boolean().default(false),
+        movieId: z.number().int().positive(), episodeNumber: z.number().int().positive(), title: z.string().trim().min(1).max(240), thumbnailUrl: optionalPublicHttpsUrlSchema, videoUrl: optionalPublicHttpsUrlSchema, languageTags: z.array(z.enum(["Urdu", "English", "Hindi"])).min(1), quality: z.enum(["144p", "240p", "360p", "480p", "720p", "1080p"]), qualityVariants: z.record(z.string(), publicHttpsUrlSchema).optional(), isPublished: z.boolean().default(false),
       })).mutation(async ({ input }) => { await requireProMovieAdmin(input.token); const { token: _token, videoUrl, thumbnailUrl, ...episode } = input; return { id: await createEpisode({ ...episode, videoUrl: videoUrl || null, thumbnailUrl: thumbnailUrl || null }) }; }),
       deleteEpisode: publicProcedure.input(tokenInput.extend({ id: z.number().int().positive() })).mutation(async ({ input }) => { await requireProMovieAdmin(input.token); await deleteEpisode(input.id); return { success: true }; }),
       users: publicProcedure.input(tokenInput).query(async ({ input }) => { await requireProMovieAdmin(input.token); return listUsersForAdmin(); }),
