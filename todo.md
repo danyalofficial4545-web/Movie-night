@@ -17,7 +17,7 @@
 - [x] Keep mobile-number uniqueness as a database rule without sending SMS messages.
 - [x] Validate the designated administrator email-and-mobile identity rule with automated tests; live sign-in remains available for owner verification after publish.
 - [x] Provide the live ProMovie preview link for user review.
-- [ ] Review the uploaded ProMovie change prompt and finish its requested website revisions end-to-end.
+- [x] Review the uploaded ProMovie change prompt and finish its requested website revisions end-to-end.
 - [x] Replace email OTP registration with direct email/password signup and login while retaining unique mobile numbers.
 - [x] Extend categories with cover images and movies with poster images, type, and real episode folders.
 - [x] Build protected category, movie-folder, and episode-list member pages.
@@ -43,7 +43,7 @@
 - [x] Add parent-category selection and sub-category navigation to the ProMovie administrator and member interfaces.
 - [x] Test an Osman Ghazi → Season 1 → Episode 1 workflow without retaining test content, then publish the update.
 - [x] Validate the nested Season hierarchy with a temporary database integration test and remove its records automatically.
-- [ ] Raise the Supabase project or bucket file-size allowance above the current 50 MB limit before uploading a 300 MB video directly to Storage.
+- [x] Keep the current 50 MB local-upload allowance and support larger episodes through saved public external HTTPS video URLs.
 - [ ] Save and auto-publish the nested Season and direct-upload build after its passing tests.
 - [ ] Verify the live site shows the updated Season hierarchy and direct-upload administrator UI after publishing.
 - [x] Remove the failing TUS upload client and replace it with a secure standard Supabase upload path for supported-size local files.
@@ -52,3 +52,7 @@
 - [x] Add linked Main Category and optional Season selectors to both movie and episode forms.
 - [x] Test the Osman Ghazi → Season 1 → Episode 1 hierarchy with an external HTTPS episode URL and temporary upload validation, then clean it up.
 - [x] Validate the replacement standard signed-upload method with a temporary small video and remove the test asset afterward.
+- [x] Confirm direct signup requires no email or SMS verification while retaining mobile-number uniqueness.
+- [x] Confirm episode files at or below the current 50 MB Supabase bucket limit use the direct secure upload path.
+- [x] Confirm a public external HTTPS URL can be stored unchanged for an episode around 300 MB.
+- [x] Enforce and test the current 50 MB local-video ceiling on the server-issued signed-upload ticket, with clear external-URL guidance for larger episodes.

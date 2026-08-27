@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { createClient } from "@supabase/supabase-js";
-import { createProMovieVideoUploadTicket, ensureProMovieAssetBucket, PRO_MOVIE_SUPABASE_URL, supabaseAdmin, uploadProMovieAsset } from "./supabase";
+import { createProMovieVideoUploadTicket, ensureProMovieAssetBucket, PROMOVIE_DIRECT_VIDEO_LIMIT_BYTES, PRO_MOVIE_SUPABASE_URL, supabaseAdmin, uploadProMovieAsset } from "./supabase";
 import { createCategory, deleteCategory } from "./db";
+import { canDirectlyUploadLocalVideo, CURRENT_DIRECT_VIDEO_LIMIT_BYTES } from "../client/src/lib/mediaUpload";
 
 async function assertSupabaseHealth(apiKey: string) {
   const url = process.env.SUPABASE_URL?.trim().startsWith("https://") ? process.env.SUPABASE_URL.trim() : PRO_MOVIE_SUPABASE_URL;
@@ -74,5 +75,28 @@ describe("Supabase configuration", () => {
     } finally {
       await supabaseAdmin.storage.from(ticket.bucket).remove([ticket.path]);
     }
+  }, 20_000);
+
+  it("allows local video selection through 50 MB and routes larger episode files to an external URL", () => {
+    expect(canDirectlyUploadLocalVideo(CURRENT_DIRECT_VIDEO_LIMIT_BYTES)).toBe(true);
+    expect(canDirectlyUploadLocalVideo(CURRENT_DIRECT_VIDEO_LIMIT_BYTES + 1)).toBe(false);
+    expect(canDirectlyUploadLocalVideo(0)).toBe(false);
+  });
+
+  it("issues a signed-upload ticket at 50 MB and rejects larger local episode files with external-link guidance", async () => {
+    const ticket = await createProMovieVideoUploadTicket({
+      ownerId: 0,
+      fileName: "fifty-megabyte-boundary.mp4",
+      contentType: "video/mp4",
+      size: PROMOVIE_DIRECT_VIDEO_LIMIT_BYTES,
+    });
+    expect(ticket.publicUrl).toMatch(/^https:\/\/iwhsbvrrakutsodsvjbt\.supabase\.co\/storage\/v1\/object\/public\/promovie-assets\/videos\//);
+    await expect(createProMovieVideoUploadTicket({
+      ownerId: 0,
+      fileName: "over-fifty-megabyte-boundary.mp4",
+      contentType: "video/mp4",
+      size: PROMOVIE_DIRECT_VIDEO_LIMIT_BYTES + 1,
+    })).rejects.toThrow(/paste a public HTTPS video URL instead/i);
+    await supabaseAdmin.storage.from(ticket.bucket).remove([ticket.path]);
   }, 20_000);
 });

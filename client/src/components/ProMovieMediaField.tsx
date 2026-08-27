@@ -3,6 +3,7 @@ import { LoaderCircle, Upload, Video } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { canDirectlyUploadLocalVideo } from "@/lib/mediaUpload";
 
 type Props = {
   token: string;
@@ -46,7 +47,9 @@ export function ProMovieMediaField({ token, label, value, onChange, kind, requir
   };
 
   const uploadVideo = async (file: File) => {
-    if (file.size > 2 * 1024 * 1024 * 1024) return toast.error("Videos must be 2 GB or smaller.");
+    if (!canDirectlyUploadLocalVideo(file.size)) {
+      return toast.error("This Storage bucket currently accepts local video files up to 50 MB. For a larger episode, paste a public HTTPS video URL instead.");
+    }
     setUploading(true); setProgress(8);
     try {
       const ticket = await createVideoUpload.mutateAsync({ token, fileName: file.name, contentType: file.type || "video/mp4", size: file.size });
@@ -70,7 +73,7 @@ export function ProMovieMediaField({ token, label, value, onChange, kind, requir
     <div className="flex gap-2"><input required={required} value={value} onChange={event => onChange(event.target.value)} placeholder="Upload file or paste a public https:// URL" className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 py-3 text-sm text-white outline-none focus:border-[#E50914]" />
       <label className="grid w-12 cursor-pointer place-items-center rounded-xl border border-white/10 bg-white/[.04] text-zinc-300 transition hover:border-red-500 hover:text-white">{uploading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : kind === "video" ? <Video className="h-4 w-4" /> : <Upload className="h-4 w-4" />}<input className="hidden" type="file" accept={kind === "video" ? "video/*" : "image/*"} disabled={uploading} onChange={event => handleFile(event.target.files?.[0])} /></label>
     </div>
-    {kind === "video" && <p className="text-xs font-normal leading-5 text-zinc-500">Supported-size videos upload directly from this browser to Supabase. For larger files, paste an external MP4, Bunny.net, or Cloudflare R2 HTTPS URL and it will be saved as-is.</p>}
+    {kind === "video" && <p className="text-xs font-normal leading-5 text-zinc-500">Local videos up to 50 MB upload directly from this browser to Supabase. For a larger episode, paste an external MP4, Bunny.net, or Cloudflare R2 HTTPS URL and it will be saved as-is.</p>}
     {progress !== null && <div className="h-2 overflow-hidden rounded-full bg-zinc-800"><div className="h-full bg-[#E50914] transition-[width] duration-200" style={{ width: `${progress}%` }} /></div>}
     {progress !== null && <p className="text-xs font-bold text-red-300">Uploading to Supabase: {progress}%</p>}
   </label>;

@@ -22,7 +22,7 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRoleKey, {
 });
 
 export const PROMOVIE_ASSET_BUCKET = "promovie-assets";
-const PROMOVIE_VIDEO_LIMIT_BYTES = 2 * 1024 * 1024 * 1024;
+export const PROMOVIE_DIRECT_VIDEO_LIMIT_BYTES = 50 * 1024 * 1024;
 let storageReady: Promise<void> | null = null;
 
 export async function ensureProMovieAssetBucket() {
@@ -30,7 +30,7 @@ export async function ensureProMovieAssetBucket() {
     storageReady = (async () => {
       const { data: existing, error: lookupError } = await supabaseAdmin.storage.getBucket(PROMOVIE_ASSET_BUCKET);
       if (lookupError || !existing) {
-        const { error } = await supabaseAdmin.storage.createBucket(PROMOVIE_ASSET_BUCKET, { public: true, fileSizeLimit: String(PROMOVIE_VIDEO_LIMIT_BYTES) });
+        const { error } = await supabaseAdmin.storage.createBucket(PROMOVIE_ASSET_BUCKET, { public: true, fileSizeLimit: String(PROMOVIE_DIRECT_VIDEO_LIMIT_BYTES) });
         if (error && !/already exists|duplicate/i.test(error.message)) throw error;
       }
     })();
@@ -52,7 +52,9 @@ export async function uploadProMovieAsset(input: { ownerId: number; fileName: st
 }
 
 export async function createProMovieVideoUploadTicket(input: { ownerId: number; fileName: string; contentType: string; size: number }) {
-  if (input.size > PROMOVIE_VIDEO_LIMIT_BYTES) throw new Error("Video files must be 2 GB or smaller.");
+  if (input.size > PROMOVIE_DIRECT_VIDEO_LIMIT_BYTES) {
+    throw new Error("This ProMovie Storage bucket accepts local videos up to 50 MB. For a larger episode, paste a public HTTPS video URL instead.");
+  }
   await ensureProMovieAssetBucket();
   const { data: bucket, error: bucketError } = await supabaseAdmin.storage.getBucket(PROMOVIE_ASSET_BUCKET);
   if (bucketError || !bucket) throw bucketError ?? new Error("Could not inspect the ProMovie asset bucket.");
