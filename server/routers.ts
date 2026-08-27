@@ -7,6 +7,8 @@ import {
   createCategory,
   createDownload,
   createEpisode,
+  createWithdrawalRequest,
+  creditReferralRewards,
   createMovie,
   createPendingEmailUser,
   deleteCategory,
@@ -16,6 +18,7 @@ import {
   getCategory,
   getEpisode,
   getMovie,
+  getUserById,
   getUserByMobile,
   grantWatchReward,
   isAdminEmail,
@@ -27,11 +30,13 @@ import {
   listPublishedCatalog,
   listPublishedMoviesForCategory,
   listUsersForAdmin,
+  listWithdrawalRequests,
+  reviewWithdrawalRequest,
   setUserBlocked,
 } from "./db";
 import { requireProMovieAdmin, requireProMovieUser } from "./promovieAuth";
-import { storagePut } from "./storage";
-import { supabaseAdmin, supabaseAuth } from "./supabase";
+import { supabaseAdmin, supabaseAuth, uploadProMovieAsset } from "./supabase";
+import { startPlaybackSession, verifyPlaybackHeartbeat } from "./playbackSessions";
 import { publicProcedure, router } from "./_core/trpc";
 
 const tokenInput = z.object({ token: z.string().min(20) });
@@ -51,7 +56,7 @@ export const appRouter = router({
   promovie: router({
     auth: router({
       signUp: publicProcedure.input(z.object({
-        fullName: z.string().trim().min(2).max(120), email: z.string().trim().email(), mobile: mobileSchema, password: z.string().min(8).max(128),
+        fullName: z.string().trim().min(2).max(120), email: z.string().trim().email(), mobile: mobileSchema, password: z.string().min(8).max(128), referrerId: z.number().int().positive().optional(),
       })).mutation(async ({ input }) => {
         if (await getUserByMobile(input.mobile)) throw new TRPCError({ code: "CONFLICT", message: "One mobile number can only be used for one account." });
         if (isAdminEmail(input.email) && !isDesignatedAdmin(input.email, input.mobile)) {
@@ -65,13 +70,15 @@ export const appRouter = router({
         });
         if (error || !data.user) throw new TRPCError({ code: "BAD_REQUEST", message: error?.message ?? "Unable to create this account." });
         try {
-          await createPendingEmailUser({ openId: data.user.id, email: input.email, name: input.fullName, mobile: input.mobile });
+          const referrer = input.referrerId ? await getUserById(input.referrerId) : undefined;
+          await createPendingEmailUser({ openId: data.user.id, email: input.email, name: input.fullName, mobile: input.mobile, referrerId: referrer?.id });
         } catch (dbError) {
           throw new TRPCError({ code: "CONFLICT", message: "Unable to reserve this mobile number. Please use a different number." });
         }
         const { data: sessionData, error: signInError } = await supabaseAuth.auth.signInWithPassword({ email: input.email, password: input.password });
         if (signInError || !sessionData.session) throw new TRPCError({ code: "BAD_REQUEST", message: signInError?.message ?? "Account created, but automatic sign-in could not be completed." });
         const profile = await requireProMovieUser(sessionData.session.access_token);
+        await creditReferralRewards({ newUserId: profile.id, referrerId: input.referrerId });
         return { token: sessionData.session.access_token, profile };
       }),
       signIn: publicProcedure.input(z.object({ email: z.string().email(), password: z.string().min(8) })).mutation(async ({ input }) => {
@@ -82,9 +89,9 @@ export const appRouter = router({
       }),
       me: publicProcedure.input(tokenInput).query(({ input }) => requireProMovieUser(input.token)),
     }),
-    catalog: publicProcedure.input(tokenInput).query(async ({ input }) => {
+    catalog: publicProcedure.input(tokenInput.extend({ categoryType: z.enum(["movie", "drama"]).optional() })).query(async ({ input }) => {
       await requireProMovieUser(input.token);
-      return listPublishedCatalog();
+      return listPublishedCatalog(input.categoryType);
     }),
     category: publicProcedure.input(tokenInput.extend({ categoryId: z.number().int().positive() })).query(async ({ input }) => {
       await requireProMovieUser(input.token);
@@ -116,25 +123,40 @@ export const appRouter = router({
       if (!movie || !movie.isPublished) throw new TRPCError({ code: "NOT_FOUND", message: "Movie unavailable." });
       return { movie, episode };
     }),
-    rewardWatch: publicProcedure.input(tokenInput.extend({ movieId: z.number().int().positive(), episodeId: z.number().int().positive().optional(), activeSeconds: z.number().int().min(0).max(3600) })).mutation(async ({ input }) => {
+    startWatch: publicProcedure.input(tokenInput.extend({ movieId: z.number().int().positive(), episodeId: z.number().int().positive().optional() })).mutation(async ({ input }) => {
       const profile = await requireProMovieUser(input.token);
       const movie = await getMovie(input.movieId);
       if (!movie || !movie.isPublished) throw new TRPCError({ code: "NOT_FOUND", message: "Movie unavailable." });
       const episode = input.episodeId ? await getEpisode(input.episodeId) : undefined;
       if (input.episodeId && (!episode || !episode.isPublished || episode.movieId !== movie.id)) throw new TRPCError({ code: "NOT_FOUND", message: "Episode unavailable." });
+      return startPlaybackSession({ userId: profile.id, movieId: movie.id, episodeId: episode?.id });
+    }),
+    rewardWatch: publicProcedure.input(tokenInput.extend({ movieId: z.number().int().positive(), episodeId: z.number().int().positive().optional(), ticket: z.string().uuid(), activeSeconds: z.number().int().min(60).max(60) })).mutation(async ({ input }) => {
+      const profile = await requireProMovieUser(input.token);
+      const movie = await getMovie(input.movieId);
+      if (!movie || !movie.isPublished) throw new TRPCError({ code: "NOT_FOUND", message: "Movie unavailable." });
+      const episode = input.episodeId ? await getEpisode(input.episodeId) : undefined;
+      if (input.episodeId && (!episode || !episode.isPublished || episode.movieId !== movie.id)) throw new TRPCError({ code: "NOT_FOUND", message: "Episode unavailable." });
+      if (!verifyPlaybackHeartbeat({ ticket: input.ticket, userId: profile.id, movieId: movie.id, episodeId: episode?.id }).eligible) return { earned: 0, rateLimited: true };
       return grantWatchReward({ userId: profile.id, movieId: movie.id, episodeId: episode?.id, episodeLabel: episode ? `Episode ${episode.episodeNumber}: ${episode.title}` : movie.title, watchedSeconds: input.activeSeconds });
     }),
     download: publicProcedure.input(tokenInput.extend({ movieId: z.number().int().positive() })).mutation(async ({ input }) => {
       const profile = await requireProMovieUser(input.token);
       return createDownload({ userId: profile.id, movieId: input.movieId });
     }),
+    withdrawal: router({
+      create: publicProcedure.input(tokenInput.extend({ method: z.enum(["easypaisa", "jazzcash"]), accountName: z.string().trim().min(2).max(160), accountNumber: z.string().trim().min(8).max(32), coins: z.number().int().min(1000) })).mutation(async ({ input }) => {
+        const profile = await requireProMovieUser(input.token);
+        return createWithdrawalRequest({ userId: profile.id, method: input.method, accountName: input.accountName, accountNumber: input.accountNumber, coins: input.coins });
+      }),
+    }),
     admin: router({
       dashboard: publicProcedure.input(tokenInput).query(async ({ input }) => { await requireProMovieAdmin(input.token); return getAdminMetrics(); }),
       categories: publicProcedure.input(tokenInput).query(async ({ input }) => { await requireProMovieAdmin(input.token); return listCategories(); }),
-      createCategory: publicProcedure.input(tokenInput.extend({ name: z.string().trim().min(2).max(120), coverUrl: z.string().url().optional().or(z.literal("")) })).mutation(async ({ input }) => {
+      createCategory: publicProcedure.input(tokenInput.extend({ name: z.string().trim().min(2).max(120), categoryType: z.enum(["movie", "drama"]).optional().default("movie"), coverUrl: z.string().url().optional().or(z.literal("")) })).mutation(async ({ input }) => {
         await requireProMovieAdmin(input.token); const slug = slugify(input.name);
         if (!slug) throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a valid category name." });
-        return createCategory(input.name, slug, input.coverUrl || null);
+        return createCategory(input.name, slug, input.coverUrl || null, input.categoryType);
       }),
       deleteCategory: publicProcedure.input(tokenInput.extend({ id: z.number().int().positive() })).mutation(async ({ input }) => { await requireProMovieAdmin(input.token); await deleteCategory(input.id); return { success: true }; }),
       movies: publicProcedure.input(tokenInput).query(async ({ input }) => { await requireProMovieAdmin(input.token); return listAllMovies(); }),
@@ -148,8 +170,11 @@ export const appRouter = router({
         if (bytes.byteLength > 12 * 1024 * 1024) {
           throw new TRPCError({ code: "PAYLOAD_TOO_LARGE", message: "For files above 12 MB, use a secure hosted video link." });
         }
-        const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
-        return storagePut(`promovie/${admin.id}/media/${Date.now()}-${safeName}`, bytes, input.contentType);
+        try {
+          return await uploadProMovieAsset({ ownerId: admin.id, fileName: input.fileName, contentType: input.contentType, bytes });
+        } catch (error) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error instanceof Error ? `Upload failed: ${error.message}` : "Upload failed." });
+        }
       }),
       createMovie: publicProcedure.input(tokenInput.extend({
         categoryId: z.number().int().positive(), title: z.string().trim().min(1).max(240), description: z.string().trim().min(1),
@@ -163,10 +188,15 @@ export const appRouter = router({
       deleteMovie: publicProcedure.input(tokenInput.extend({ id: z.number().int().positive() })).mutation(async ({ input }) => { await requireProMovieAdmin(input.token); await deleteMovie(input.id); return { success: true }; }),
       episodes: publicProcedure.input(tokenInput.extend({ movieId: z.number().int().positive() })).query(async ({ input }) => { await requireProMovieAdmin(input.token); return listEpisodesForMovie(input.movieId); }),
       createEpisode: publicProcedure.input(tokenInput.extend({
-        movieId: z.number().int().positive(), episodeNumber: z.number().int().positive(), title: z.string().trim().min(1).max(240), videoUrl: z.string().url().optional().or(z.literal("")), languageTags: z.array(z.enum(["Urdu", "English", "Hindi"])).min(1), quality: z.enum(["144p", "240p", "360p", "480p", "720p", "1080p"]), qualityVariants: z.record(z.string(), z.string().url()).optional(), isPublished: z.boolean().default(false),
-      })).mutation(async ({ input }) => { await requireProMovieAdmin(input.token); const { token: _token, videoUrl, ...episode } = input; return { id: await createEpisode({ ...episode, videoUrl: videoUrl || null }) }; }),
+        movieId: z.number().int().positive(), episodeNumber: z.number().int().positive(), title: z.string().trim().min(1).max(240), thumbnailUrl: z.string().url().optional().or(z.literal("")), videoUrl: z.string().url().optional().or(z.literal("")), languageTags: z.array(z.enum(["Urdu", "English", "Hindi"])).min(1), quality: z.enum(["144p", "240p", "360p", "480p", "720p", "1080p"]), qualityVariants: z.record(z.string(), z.string().url()).optional(), isPublished: z.boolean().default(false),
+      })).mutation(async ({ input }) => { await requireProMovieAdmin(input.token); const { token: _token, videoUrl, thumbnailUrl, ...episode } = input; return { id: await createEpisode({ ...episode, videoUrl: videoUrl || null, thumbnailUrl: thumbnailUrl || null }) }; }),
       deleteEpisode: publicProcedure.input(tokenInput.extend({ id: z.number().int().positive() })).mutation(async ({ input }) => { await requireProMovieAdmin(input.token); await deleteEpisode(input.id); return { success: true }; }),
       users: publicProcedure.input(tokenInput).query(async ({ input }) => { await requireProMovieAdmin(input.token); return listUsersForAdmin(); }),
+      withdrawals: publicProcedure.input(tokenInput).query(async ({ input }) => { await requireProMovieAdmin(input.token); return listWithdrawalRequests(); }),
+      reviewWithdrawal: publicProcedure.input(tokenInput.extend({ requestId: z.number().int().positive(), decision: z.enum(["approved", "rejected"]), reviewerNote: z.string().trim().max(255).optional() })).mutation(async ({ input }) => {
+        const admin = await requireProMovieAdmin(input.token);
+        return reviewWithdrawalRequest({ requestId: input.requestId, adminId: admin.id, decision: input.decision, reviewerNote: input.reviewerNote });
+      }),
       blockUser: publicProcedure.input(tokenInput.extend({ id: z.number().int().positive(), isBlocked: z.boolean() })).mutation(async ({ input }) => {
         const admin = await requireProMovieAdmin(input.token);
         if (admin.id === input.id) throw new TRPCError({ code: "BAD_REQUEST", message: "You cannot block your own administrator account." });

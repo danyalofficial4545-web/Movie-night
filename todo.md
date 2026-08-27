@@ -17,13 +17,23 @@
 - [x] Keep mobile-number uniqueness as a database rule without sending SMS messages.
 - [x] Validate the designated administrator email-and-mobile identity rule with automated tests; live sign-in remains available for owner verification after publish.
 - [x] Provide the live ProMovie preview link for user review.
-- [ ] Review the uploaded ProMovie change prompt and implement its requested website revisions.
+- [ ] Review the uploaded ProMovie change prompt and finish its requested website revisions end-to-end.
 - [x] Replace email OTP registration with direct email/password signup and login while retaining unique mobile numbers.
 - [x] Extend categories with cover images and movies with poster images, type, and real episode folders.
 - [x] Build protected category, movie-folder, and episode-list member pages.
 - [x] Extend the Admin Panel for category covers, movie posters, series controls, and episode management.
 - [x] Replace the native video controls with the custom Bro Player gesture and playback interface.
-- [ ] Add administrator controls for real per-episode quality source variants and connect Bro Player switching to them.
-- [ ] Document the browser limitation for mobile hardware-volume button events while retaining in-player volume feedback.
+- [x] Add administrator controls for real per-episode quality source variants and pass them into Bro Player for source switching.
+- [x] Document the browser limitation for mobile hardware-volume button events while retaining in-player volume feedback.
 - [ ] Verify the authenticated admin upload-to-Bro-Player flow with the owner’s real content after sign-in.
 - [ ] Verify the revised live website and save a new publish-ready checkpoint.
+- [x] Replace local media paths with full Supabase Storage public URLs for category covers, posters, thumbnails, and video assets.
+- [x] Add category type controls and separate protected Movies and Dramas category pages.
+- [x] Implement server-verified one-minute watch heartbeats, wallet conversion information, and detailed earnings history.
+- [x] Add unique referral links and the requested 200-coin referral reward accounting.
+- [x] Add minimum-threshold withdrawal requests for Easypaisa and JazzCash with administrator approval controls and no automatic payouts.
+- [x] Test Supabase category-cover upload and Osman Ghazi category creation with a temporary end-to-end record, then clean up all test content.
+- [x] Verify a temporary Supabase Storage upload returns a full public URL and leaves no test asset behind.
+- [x] Strengthen server-side playback-session validation beyond the present heartbeat rate limit.
+- [x] Run the temporary Osman Ghazi category cover test against Supabase Storage and verify cleanup.
+- [x] Require a server-managed playback ticket before a one-minute watch-reward heartbeat can earn coins.

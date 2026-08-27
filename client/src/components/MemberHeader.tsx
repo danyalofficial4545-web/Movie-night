@@ -12,6 +12,8 @@ export function MemberHeader({ member }: { member: { name: string | null; email:
         <ProMovieBrand />
         <div className="hidden items-center gap-2 md:flex">
           <button onClick={() => setLocation("/")} className="rounded-full px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/8">Home</button>
+          <button onClick={() => setLocation("/movies")} className="rounded-full px-4 py-2 text-sm font-semibold text-zinc-400 transition hover:bg-white/8 hover:text-white">Movies</button>
+          <button onClick={() => setLocation("/dramas")} className="rounded-full px-4 py-2 text-sm font-semibold text-zinc-400 transition hover:bg-white/8 hover:text-white">Dramas</button>
           <button onClick={() => setLocation("/profile")} className="rounded-full px-4 py-2 text-sm font-semibold text-zinc-400 transition hover:bg-white/8 hover:text-white">My Library</button>
           {member.role === "admin" && <button onClick={() => setLocation("/admin")} className="inline-flex items-center gap-2 rounded-full bg-[#E50914] px-4 py-2 text-sm font-bold text-white transition hover:bg-[#ff202b]"><ShieldCheck className="h-4 w-4" />Admin Panel</button>}
         </div>

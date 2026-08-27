@@ -21,6 +21,9 @@ export const users = mysqlTable("users", {
   loginMethod: varchar("loginMethod", { length: 64 }),
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   coinBalance: int("coinBalance").default(0).notNull(),
+  referralCode: varchar("referralCode", { length: 24 }).unique(),
+  referredByUserId: int("referredByUserId"),
+  referralCoinsEarned: int("referralCoinsEarned").default(0).notNull(),
   isBlocked: boolean("isBlocked").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
@@ -28,6 +31,7 @@ export const users = mysqlTable("users", {
 }, table => [
   uniqueIndex("users_mobile_unique").on(table.mobile),
   index("users_email_idx").on(table.email),
+  index("users_referrer_idx").on(table.referredByUserId),
 ]);
 
 export type User = typeof users.$inferSelect;
@@ -37,10 +41,11 @@ export const categories = mysqlTable("categories", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 120 }).notNull(),
   slug: varchar("slug", { length: 140 }).notNull().unique(),
+  categoryType: mysqlEnum("categoryType", ["movie", "drama"]).default("movie").notNull(),
   coverUrl: text("coverUrl"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+}, table => [index("category_type_idx").on(table.categoryType)]);
 
 export const movies = mysqlTable("movies", {
   id: int("id").autoincrement().primaryKey(),
@@ -66,6 +71,7 @@ export const episodes = mysqlTable("episodes", {
   movieId: int("movieId").notNull().references(() => movies.id, { onDelete: "cascade" }),
   episodeNumber: int("episodeNumber").notNull(),
   title: varchar("title", { length: 240 }).notNull(),
+  thumbnailUrl: text("thumbnailUrl"),
   videoUrl: text("videoUrl"),
   languageTags: json("languageTags").$type<string[]>().notNull(),
   quality: varchar("quality", { length: 24 }).default("1080p").notNull(),
@@ -87,6 +93,7 @@ export const watchSessions = mysqlTable("watchSessions", {
   watchedSeconds: int("watchedSeconds").default(0).notNull(),
   coinsEarned: int("coinsEarned").default(0).notNull(),
   lastPlayedAt: timestamp("lastPlayedAt").defaultNow().notNull(),
+  lastRewardedAt: timestamp("lastRewardedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, table => [
@@ -99,7 +106,7 @@ export const walletTransactions = mysqlTable("walletTransactions", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
   movieId: int("movieId").references(() => movies.id, { onDelete: "set null" }),
-  activity: mysqlEnum("activity", ["watched", "downloaded", "admin_adjustment"]).notNull(),
+  activity: mysqlEnum("activity", ["watched", "downloaded", "admin_adjustment", "referral_bonus", "withdrawal_approved", "withdrawal_rejected"]).notNull(),
   coinsDelta: int("coinsDelta").notNull(),
   note: varchar("note", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -116,4 +123,22 @@ export const downloads = mysqlTable("downloads", {
 }, table => [
   uniqueIndex("download_user_movie_unique").on(table.userId, table.movieId),
   index("download_user_idx").on(table.userId),
+]);
+
+export const withdrawalRequests = mysqlTable("withdrawalRequests", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id, { onDelete: "cascade" }),
+  method: mysqlEnum("method", ["easypaisa", "jazzcash"]).notNull(),
+  accountName: varchar("accountName", { length: 160 }).notNull(),
+  accountNumber: varchar("accountNumber", { length: 32 }).notNull(),
+  coins: int("coins").notNull(),
+  pkrAmount: int("pkrAmount").notNull(),
+  status: mysqlEnum("status", ["pending", "approved", "rejected"]).default("pending").notNull(),
+  reviewerNote: varchar("reviewerNote", { length: 255 }),
+  reviewedByUserId: int("reviewedByUserId").references(() => users.id, { onDelete: "set null" }),
+  reviewedAt: timestamp("reviewedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, table => [
+  index("withdrawal_user_idx").on(table.userId),
+  index("withdrawal_status_idx").on(table.status),
 ]);
