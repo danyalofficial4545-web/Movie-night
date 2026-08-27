@@ -106,9 +106,8 @@ export async function ensureProMovieUser(input: { openId: string; email?: string
 
 export async function listPublishedCatalog(categoryType?: "movie" | "drama") {
   const db = await requireDb();
-  const allCategories = categoryType
-    ? await db.select().from(categories).where(eq(categories.categoryType, categoryType)).orderBy(categories.name)
-    : await db.select().from(categories).orderBy(categories.name);
+  const mainCategoryCondition = categoryType ? and(isNull(categories.parentId), eq(categories.categoryType, categoryType)) : isNull(categories.parentId);
+  const allCategories = await db.select().from(categories).where(mainCategoryCondition).orderBy(categories.name);
   const publishedMovies = await db.select().from(movies).where(eq(movies.isPublished, true)).orderBy(desc(movies.createdAt));
   return { categories: allCategories, movies: publishedMovies };
 }
@@ -123,9 +122,14 @@ export async function getCategory(id: number) {
   return (await db.select().from(categories).where(eq(categories.id, id)).limit(1))[0];
 }
 
-export async function createCategory(name: string, slug: string, coverUrl?: string | null, categoryType: "movie" | "drama" = "movie") {
+export async function listSubCategories(parentId: number) {
   const db = await requireDb();
-  await db.insert(categories).values({ name, slug, coverUrl: coverUrl ?? null, categoryType });
+  return db.select().from(categories).where(eq(categories.parentId, parentId)).orderBy(categories.name);
+}
+
+export async function createCategory(name: string, slug: string, coverUrl?: string | null, categoryType: "movie" | "drama" = "movie", parentId?: number | null) {
+  const db = await requireDb();
+  await db.insert(categories).values({ name, slug, coverUrl: coverUrl ?? null, categoryType, parentId: parentId ?? null });
   return (await db.select().from(categories).where(eq(categories.slug, slug)).limit(1))[0];
 }
 

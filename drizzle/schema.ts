@@ -1,5 +1,6 @@
 import {
   boolean,
+  AnyMySqlColumn,
   index,
   int,
   json,
@@ -41,11 +42,12 @@ export const categories = mysqlTable("categories", {
   id: int("id").autoincrement().primaryKey(),
   name: varchar("name", { length: 120 }).notNull(),
   slug: varchar("slug", { length: 140 }).notNull().unique(),
+  parentId: int("parentId").references((): AnyMySqlColumn => categories.id, { onDelete: "set null" }),
   categoryType: mysqlEnum("categoryType", ["movie", "drama"]).default("movie").notNull(),
   coverUrl: text("coverUrl"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-}, table => [index("category_type_idx").on(table.categoryType)]);
+}, table => [index("category_type_idx").on(table.categoryType), index("category_parent_idx").on(table.parentId)]);
 
 export const movies = mysqlTable("movies", {
   id: int("id").autoincrement().primaryKey(),

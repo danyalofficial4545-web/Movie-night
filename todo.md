@@ -37,3 +37,12 @@
 - [x] Strengthen server-side playback-session validation beyond the present heartbeat rate limit.
 - [x] Run the temporary Osman Ghazi category cover test against Supabase Storage and verify cleanup.
 - [x] Require a server-managed playback ticket before a one-minute watch-reward heartbeat can earn coins.
+- [x] Replace server-routed large video uploads with secure browser-to-Supabase signed uploads and progress feedback.
+- [x] Preserve full Supabase public URLs for uploaded poster, cover, thumbnail, movie, and episode assets while accepting external HTTPS URLs.
+- [x] Add nullable parent-category support so main categories can contain Season sub-categories.
+- [x] Add parent-category selection and sub-category navigation to the ProMovie administrator and member interfaces.
+- [x] Test an Osman Ghazi → Season 1 → Episode 1 workflow without retaining test content, then publish the update.
+- [x] Validate the nested Season hierarchy with a temporary database integration test and remove its records automatically.
+- [ ] Raise the Supabase project or bucket file-size allowance above the current 50 MB limit before uploading a 300 MB video directly to Storage.
+- [ ] Save and auto-publish the nested Season and direct-upload build after its passing tests.
+- [ ] Verify the live site shows the updated Season hierarchy and direct-upload administrator UI after publishing.

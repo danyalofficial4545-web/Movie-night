@@ -29,13 +29,14 @@ import {
   listProfileData,
   listPublishedCatalog,
   listPublishedMoviesForCategory,
+  listSubCategories,
   listUsersForAdmin,
   listWithdrawalRequests,
   reviewWithdrawalRequest,
   setUserBlocked,
 } from "./db";
 import { requireProMovieAdmin, requireProMovieUser } from "./promovieAuth";
-import { supabaseAdmin, supabaseAuth, uploadProMovieAsset } from "./supabase";
+import { createProMovieVideoUploadTicket, supabaseAdmin, supabaseAuth, uploadProMovieAsset } from "./supabase";
 import { startPlaybackSession, verifyPlaybackHeartbeat } from "./playbackSessions";
 import { publicProcedure, router } from "./_core/trpc";
 
@@ -97,7 +98,8 @@ export const appRouter = router({
       await requireProMovieUser(input.token);
       const category = await getCategory(input.categoryId);
       if (!category) throw new TRPCError({ code: "NOT_FOUND", message: "Category unavailable." });
-      return { category, movies: await listPublishedMoviesForCategory(category.id) };
+      const subCategories = await listSubCategories(category.id);
+      return { category, subCategories, movies: subCategories.length ? [] : await listPublishedMoviesForCategory(category.id) };
     }),
     profile: publicProcedure.input(tokenInput).query(async ({ input }) => {
       const profile = await requireProMovieUser(input.token);
@@ -153,10 +155,13 @@ export const appRouter = router({
     admin: router({
       dashboard: publicProcedure.input(tokenInput).query(async ({ input }) => { await requireProMovieAdmin(input.token); return getAdminMetrics(); }),
       categories: publicProcedure.input(tokenInput).query(async ({ input }) => { await requireProMovieAdmin(input.token); return listCategories(); }),
-      createCategory: publicProcedure.input(tokenInput.extend({ name: z.string().trim().min(2).max(120), categoryType: z.enum(["movie", "drama"]).optional().default("movie"), coverUrl: z.string().url().optional().or(z.literal("")) })).mutation(async ({ input }) => {
+      createCategory: publicProcedure.input(tokenInput.extend({ name: z.string().trim().min(2).max(120), categoryType: z.enum(["movie", "drama"]).optional().default("movie"), parentId: z.number().int().positive().optional(), coverUrl: z.string().url().optional().or(z.literal("")) })).mutation(async ({ input }) => {
         await requireProMovieAdmin(input.token); const slug = slugify(input.name);
         if (!slug) throw new TRPCError({ code: "BAD_REQUEST", message: "Enter a valid category name." });
-        return createCategory(input.name, slug, input.coverUrl || null, input.categoryType);
+        const parent = input.parentId ? await getCategory(input.parentId) : undefined;
+        if (input.parentId && !parent) throw new TRPCError({ code: "NOT_FOUND", message: "Parent category unavailable." });
+        const nestedSlug = parent ? `${parent.slug}-${slug}` : slug;
+        return createCategory(input.name, nestedSlug, input.coverUrl || null, parent?.categoryType ?? input.categoryType, parent?.id);
       }),
       deleteCategory: publicProcedure.input(tokenInput.extend({ id: z.number().int().positive() })).mutation(async ({ input }) => { await requireProMovieAdmin(input.token); await deleteCategory(input.id); return { success: true }; }),
       movies: publicProcedure.input(tokenInput).query(async ({ input }) => { await requireProMovieAdmin(input.token); return listAllMovies(); }),
@@ -167,13 +172,22 @@ export const appRouter = router({
       })).mutation(async ({ input }) => {
         const admin = await requireProMovieAdmin(input.token);
         const bytes = Buffer.from(input.base64, "base64");
-        if (bytes.byteLength > 12 * 1024 * 1024) {
-          throw new TRPCError({ code: "PAYLOAD_TOO_LARGE", message: "For files above 12 MB, use a secure hosted video link." });
-        }
         try {
           return await uploadProMovieAsset({ ownerId: admin.id, fileName: input.fileName, contentType: input.contentType, bytes });
         } catch (error) {
           throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error instanceof Error ? `Upload failed: ${error.message}` : "Upload failed." });
+        }
+      }),
+      createVideoUpload: publicProcedure.input(tokenInput.extend({
+        fileName: z.string().min(1).max(180),
+        contentType: z.string().min(3).max(120),
+        size: z.number().int().positive().max(2 * 1024 * 1024 * 1024),
+      })).mutation(async ({ input }) => {
+        const admin = await requireProMovieAdmin(input.token);
+        try {
+          return await createProMovieVideoUploadTicket({ ownerId: admin.id, fileName: input.fileName, contentType: input.contentType, size: input.size });
+        } catch (error) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not start the direct video upload." });
         }
       }),
       createMovie: publicProcedure.input(tokenInput.extend({
