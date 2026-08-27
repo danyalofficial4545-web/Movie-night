@@ -26,7 +26,7 @@
 - [x] Add administrator controls for real per-episode quality source variants and pass them into Bro Player for source switching.
 - [x] Document the browser limitation for mobile hardware-volume button events while retaining in-player volume feedback.
 - [ ] Verify the authenticated admin upload-to-Bro-Player flow with the owner’s real content after sign-in.
-- [ ] Verify the revised live website and save a new publish-ready checkpoint.
+- [x] Verify the revised live website and save a new publish-ready checkpoint.
 - [x] Replace local media paths with full Supabase Storage public URLs for category covers, posters, thumbnails, and video assets.
 - [x] Add category type controls and separate protected Movies and Dramas category pages.
 - [x] Implement server-verified one-minute watch heartbeats, wallet conversion information, and detailed earnings history.
@@ -44,7 +44,7 @@
 - [x] Test an Osman Ghazi → Season 1 → Episode 1 workflow without retaining test content, then publish the update.
 - [x] Validate the nested Season hierarchy with a temporary database integration test and remove its records automatically.
 - [x] Keep the current 50 MB local-upload allowance and support larger episodes through saved public external HTTPS video URLs.
-- [ ] Save and auto-publish the nested Season and direct-upload build after its passing tests.
+- [x] Save and auto-publish the nested Season and direct-upload build after its passing tests.
 - [ ] Verify the live site shows the updated Season hierarchy and direct-upload administrator UI after publishing.
 - [x] Remove the failing TUS upload client and replace it with a secure standard Supabase upload path for supported-size local files.
 - [x] Preserve external HTTPS video links as direct saved values for large video hosting outside the current 50 MB Supabase bucket limit.
@@ -56,3 +56,4 @@
 - [x] Confirm episode files at or below the current 50 MB Supabase bucket limit use the direct secure upload path.
 - [x] Confirm a public external HTTPS URL can be stored unchanged for an episode around 300 MB.
 - [x] Enforce and test the current 50 MB local-video ceiling on the server-issued signed-upload ticket, with clear external-URL guidance for larger episodes.
+- [ ] Republish the current tested ProMovie build and provide the live link for owner issue testing.
