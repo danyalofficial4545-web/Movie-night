@@ -17,3 +17,11 @@ The originally supplied `test-videos.co.uk` Big Buck Bunny URL returned HTTP 404
 The working public source `https://samplelib.com/preview/mp4/sample-5s.mp4` returned `200 OK` with `video/mp4` and rendered in the browser’s native video player. The cleanup-safe nested Category → Season → Movie → Episode test saves this exact URL in both the temporary movie and temporary episode records, retrieves both URLs unchanged, and removes the temporary records.
 
 After publishing the video-preview repair, the public `/signup` route loaded successfully again on `https://earnpackpro-3nzfwkdg.manus.space/signup`. The production site is available for the final owner-authenticated administrator verification.
+
+## Supplied provider-link inspection — 28 August 2026
+
+The supplied `https://buzzheavier.com/8q5samzjluet/download` request resolves to a Buzzheavier file landing page for `VID-20260820-WA0011.mp4` (31.5 MB), not a raw video response in the browser. The page exposes separate “Download File”, “Copy download link”, and “Open in browser instead” controls. ProMovie must therefore accept the public HTTPS source without incorrectly rejecting the provider URL, but native in-page playback still depends on the host exposing a direct video response with a browser-compatible codec and permissive embedding/CORS behavior.
+
+The provider’s `Open in browser instead` endpoint returns a native video element with a separate, tokenized `https://ts.buzzheavier.com/d/…` MP4 source. That source is not stable enough to store permanently because the provider issues it dynamically. Bro Player should keep the original public Buzzheavier URL in the catalog and resolve the provider’s current direct MP4 source when playback or preview is requested.
+
+The supplied Buzzheavier file was rechecked on 28 August 2026 and remains publicly available as a 31.5 MB MP4 file landing page. The provider UI’s dynamic preview control did not activate through generic browser automation, reinforcing the need for the application’s server-side resolver rather than saving a short-lived direct media token.

@@ -1,9 +1,9 @@
-import { LoaderCircle, Upload, Video } from "lucide-react";
+import { Link2, LoaderCircle, Upload, Video } from "lucide-react";
 import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { uploadVideoToSignedUrl } from "@/lib/directVideoUpload";
-import { canDirectlyUploadLocalVideo, getPublicHttpsVideoUrl } from "@/lib/mediaUpload";
+import { canDirectlyUploadLocalVideo, getPublicHttpsVideoUrl, isBuzzheavierLandingLink } from "@/lib/mediaUpload";
 
 type Props = {
   token: string;
@@ -21,9 +21,9 @@ const asBase64 = (file: File) => new Promise<{ fileName: string; contentType: st
   reader.readAsDataURL(file);
 });
 
-export function PublicVideoPreview({ value }: { value: string }) {
+export function PublicVideoPreview({ value, source }: { value: string; source?: string }) {
   const [previewError, setPreviewError] = useState(false);
-  const previewUrl = getPublicHttpsVideoUrl(value);
+  const previewUrl = getPublicHttpsVideoUrl(source || value);
   useEffect(() => { setPreviewError(false); }, [previewUrl]);
   if (!previewUrl) return null;
   return <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-black/50 p-3"><p className="mb-2 text-xs font-bold uppercase tracking-[.14em] text-zinc-400">Video preview</p><video key={previewUrl} className="aspect-video w-full rounded-lg bg-black" controls playsInline preload="metadata" src={previewUrl} onCanPlay={() => setPreviewError(false)} onError={() => setPreviewError(true)}>Your browser cannot preview this video.</video>{previewError && <p className="mt-2 text-xs font-semibold text-amber-300">This URL could not be played in the preview. Check that it is a public HTTPS MP4/video link, then save it again.</p>}<p className="mt-2 break-all text-xs text-zinc-500">Ready to save: {previewUrl}</p></div>;
@@ -34,6 +34,7 @@ export function ProMovieMediaField({ token, label, value, onChange, kind, requir
   const [uploading, setUploading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState("");
   const previewUrl = kind === "video" ? getPublicHttpsVideoUrl(value) : null;
+  const resolveVideoLink = trpc.promovie.admin.resolveVideoLink.useQuery({ token, sourceUrl: previewUrl ?? "https://example.invalid/video.mp4" }, { enabled: kind === "video" && Boolean(previewUrl) && Boolean(token), retry: false });
   const uploadAsset = trpc.promovie.admin.uploadAsset.useMutation();
   const createVideoUpload = trpc.promovie.admin.createVideoUpload.useMutation();
 
@@ -72,12 +73,15 @@ export function ProMovieMediaField({ token, label, value, onChange, kind, requir
   };
 
   return <div className="field-label"><span>{label}</span>
-    <div className="flex gap-2"><input required={required} type={kind === "video" ? "url" : "text"} value={value} onChange={event => onChange(event.target.value)} onBlur={event => { const entered = event.target.value.trim(); if (kind === "video" && entered && !getPublicHttpsVideoUrl(entered)) toast.error("Use a public HTTPS video URL, for example https://example.com/video.mp4."); }} placeholder="Upload file or paste a public https:// URL" className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 py-3 text-sm text-white outline-none focus:border-[#E50914]" />
-      <label className="grid w-12 cursor-pointer place-items-center rounded-xl border border-white/10 bg-white/[.04] text-zinc-300 transition hover:border-red-500 hover:text-white">{uploading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : kind === "video" ? <Video className="h-4 w-4" /> : <Upload className="h-4 w-4" />}<input className="hidden" type="file" accept={kind === "video" ? "video/*" : "image/*"} disabled={uploading} onChange={event => handleFile(event.target.files?.[0])} /></label>
+    <div className="flex gap-2"><input required={required} type={kind === "video" ? "url" : "text"} value={value} onChange={event => onChange(event.target.value)} onBlur={event => { const entered = event.target.value.trim(); if (kind === "video" && entered && !getPublicHttpsVideoUrl(entered)) toast.error("Use a public HTTPS video URL, for example https://example.com/video.mp4."); }} placeholder={kind === "video" ? "Paste a public HTTPS video/download link" : "Upload file or paste a public https:// URL"} className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 py-3 text-sm text-white outline-none focus:border-[#E50914]" />
+      {kind === "image" && <label className="grid w-12 cursor-pointer place-items-center rounded-xl border border-white/10 bg-white/[.04] text-zinc-300 transition hover:border-red-500 hover:text-white">{uploading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}<input className="hidden" type="file" accept="image/*" disabled={uploading} onChange={event => handleFile(event.target.files?.[0])} /></label>}
+      {kind === "video" && <span title="Link-only video source" className="grid w-12 place-items-center rounded-xl border border-[#E50914]/35 bg-[#E50914]/10 text-[#ff6a6f]"><Link2 className="h-4 w-4" /></span>}
     </div>
-    {kind === "video" && <p className="text-xs font-normal leading-5 text-zinc-500">Local videos up to 50 MB upload directly from this browser to Supabase. For a larger episode, paste an external MP4, Bunny.net, or Cloudflare R2 HTTPS URL and it will be saved as-is.</p>}
+    {kind === "video" && <p className="text-xs font-normal leading-5 text-zinc-500">Link-only source: paste a public HTTPS MP4 or provider download link. Buzzheavier, Catbox, and Pixeldrain links are accepted. The phone gallery will not open.</p>}
+    {kind === "video" && isBuzzheavierLandingLink(value) && <p className="rounded-lg border border-amber-400/25 bg-amber-300/[.06] px-3 py-2 text-xs font-semibold leading-5 text-amber-200">Buzzheavier link recognized. For in-site playback, open this file on Buzzheavier, tap <strong>Copy download link</strong>, then paste the complete copied URL here. It must include <code>?t=…</code>; the plain file page is saved but cannot be played inside a video element.</p>}
     {kind === "video" && value.trim() && !previewUrl && <p className="text-xs font-semibold text-amber-300">Paste a complete public HTTPS video URL to show a preview and save it.</p>}
-    {kind === "video" && <PublicVideoPreview value={value} />}
+    {kind === "video" && previewUrl && resolveVideoLink.isFetching && <p className="text-xs font-semibold text-zinc-400">Checking the public video link…</p>}
+    {kind === "video" && <PublicVideoPreview value={value} source={resolveVideoLink.data?.sourceUrl} />}
     {progress !== null && <div className="h-2 overflow-hidden rounded-full bg-zinc-800"><div className="h-full bg-[#E50914] transition-[width] duration-200" style={{ width: `${progress}%` }} /></div>}
     {uploadStatus && <p className="text-xs font-bold text-red-300">{uploadStatus}</p>}
   </div>;

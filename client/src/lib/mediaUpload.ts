@@ -13,3 +13,10 @@ export function getPublicHttpsVideoUrl(value: string) {
     return null;
   }
 }
+
+export function isBuzzheavierLandingLink(value: string) {
+  const url = getPublicHttpsVideoUrl(value);
+  if (!url) return false;
+  const parsed = new URL(url);
+  return ["buzzheavier.com", "www.buzzheavier.com"].includes(parsed.hostname) && !parsed.searchParams.has("t");
+}

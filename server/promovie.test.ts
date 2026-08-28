@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ADMIN_EMAIL, isAdminEmail, isDesignatedAdmin } from "./db";
-import { getPublicHttpsVideoUrl } from "../client/src/lib/mediaUpload";
+import { getPublicHttpsVideoUrl, isBuzzheavierLandingLink } from "../client/src/lib/mediaUpload";
 
 describe("ProMovie role policy", () => {
   it("grants administrator status only to the configured administrator email", () => {
@@ -27,5 +27,7 @@ describe("ProMovie role policy", () => {
     expect(getPublicHttpsVideoUrl(reachableSampleUrl)).toBe(reachableSampleUrl);
     expect(getPublicHttpsVideoUrl("http://example.com/video.mp4")).toBeNull();
     expect(getPublicHttpsVideoUrl("not a video URL")).toBeNull();
+    expect(isBuzzheavierLandingLink("https://buzzheavier.com/8q5samzjluet/download")).toBe(true);
+    expect(isBuzzheavierLandingLink("https://buzzheavier.com/8q5samzjluet/download?t=provider-token")).toBe(false);
   });
 });

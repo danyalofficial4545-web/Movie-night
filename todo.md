@@ -65,4 +65,8 @@
 - [x] Ensure the direct video upload cannot appear indefinitely stuck on mobile browsers and retains external HTTPS URL fallback.
 - [x] Test the repaired upload status and publish the mobile uploader fix.
 - [x] Add automated coverage for actual XHR progress, timeout, and error states in the direct video uploader.
-- [ ] Save and verify a fresh public deployment containing the real-progress upload repair.
+- [x] Save and verify a fresh public deployment containing the real-progress upload repair.
+- [x] Make Movie and Episode video entry link-first so the phone gallery is not opened for normal source entry.
+- [x] Accept and preserve public HTTPS download and MP4 provider links, including Buzzheavier, Catbox, and Pixeldrain URLs.
+- [ ] Publish and verify the supplied Buzzheavier link-first Bro Player update after its validated source-resolution behavior.
+- [x] Guide Buzzheavier administrators to paste the provider’s tokenized copied download URL when its plain landing-page link cannot be played inline.

@@ -38,6 +38,7 @@ import {
 import { requireProMovieAdmin, requireProMovieUser } from "./promovieAuth";
 import { createProMovieVideoUploadTicket, supabaseAdmin, supabaseAuth, uploadProMovieAsset } from "./supabase";
 import { startPlaybackSession, verifyPlaybackHeartbeat } from "./playbackSessions";
+import { resolveVideoPlaybackLink } from "./videoLinkResolver";
 import { publicProcedure, router } from "./_core/trpc";
 
 const tokenInput = z.object({ token: z.string().min(20) });
@@ -127,6 +128,17 @@ export const appRouter = router({
       if (!movie || !movie.isPublished) throw new TRPCError({ code: "NOT_FOUND", message: "Movie unavailable." });
       return { movie, episode };
     }),
+    playbackSource: publicProcedure.input(tokenInput.extend({ movieId: z.number().int().positive(), episodeId: z.number().int().positive().optional() })).query(async ({ input }) => {
+      await requireProMovieUser(input.token);
+      const movie = await getMovie(input.movieId);
+      if (!movie || !movie.isPublished) throw new TRPCError({ code: "NOT_FOUND", message: "Movie unavailable." });
+      const episode = input.episodeId ? await getEpisode(input.episodeId) : undefined;
+      if (input.episodeId && (!episode || !episode.isPublished || episode.movieId !== movie.id)) throw new TRPCError({ code: "NOT_FOUND", message: "Episode unavailable." });
+      const sourceUrl = episode?.videoUrl || movie.videoUrl;
+      if (!sourceUrl) return { sourceUrl: "", originalUrl: "", provider: "direct" as const, resolved: false };
+      const resolved = await resolveVideoPlaybackLink(sourceUrl);
+      return { sourceUrl: resolved.playbackUrl, originalUrl: resolved.originalUrl, provider: resolved.provider, resolved: resolved.resolved };
+    }),
     startWatch: publicProcedure.input(tokenInput.extend({ movieId: z.number().int().positive(), episodeId: z.number().int().positive().optional() })).mutation(async ({ input }) => {
       const profile = await requireProMovieUser(input.token);
       const movie = await getMovie(input.movieId);
@@ -191,6 +203,11 @@ export const appRouter = router({
         } catch (error) {
           throw new TRPCError({ code: "BAD_REQUEST", message: error instanceof Error ? error.message : "Could not start the direct video upload." });
         }
+      }),
+      resolveVideoLink: publicProcedure.input(tokenInput.extend({ sourceUrl: publicHttpsUrlSchema })).query(async ({ input }) => {
+        await requireProMovieAdmin(input.token);
+        const resolved = await resolveVideoPlaybackLink(input.sourceUrl);
+        return { sourceUrl: resolved.playbackUrl, originalUrl: resolved.originalUrl, provider: resolved.provider, resolved: resolved.resolved };
       }),
       createMovie: publicProcedure.input(tokenInput.extend({
         categoryId: z.number().int().positive(), title: z.string().trim().min(1).max(240), description: z.string().trim().min(1),
