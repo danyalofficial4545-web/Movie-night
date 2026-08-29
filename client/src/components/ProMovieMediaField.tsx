@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { uploadVideoToSignedUrl } from "@/lib/directVideoUpload";
-import { canDirectlyUploadLocalVideo, getPublicHttpsVideoUrl, isBuzzheavierLandingLink } from "@/lib/mediaUpload";
+import { canDirectlyUploadLocalVideo, getBrowserVideoSourceUrl, getPublicHttpsVideoUrl, isBuzzheavierLandingLink } from "@/lib/mediaUpload";
 
 type Props = {
   token: string;
@@ -23,10 +23,11 @@ const asBase64 = (file: File) => new Promise<{ fileName: string; contentType: st
 
 export function PublicVideoPreview({ value, source }: { value: string; source?: string }) {
   const [previewError, setPreviewError] = useState(false);
-  const previewUrl = getPublicHttpsVideoUrl(source || value);
+  const originalUrl = getPublicHttpsVideoUrl(source || value);
+  const previewUrl = originalUrl ? getBrowserVideoSourceUrl(originalUrl) : null;
   useEffect(() => { setPreviewError(false); }, [previewUrl]);
-  if (!previewUrl) return null;
-  return <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-black/50 p-3"><p className="mb-2 text-xs font-bold uppercase tracking-[.14em] text-zinc-400">Video preview</p><video key={previewUrl} className="aspect-video w-full rounded-lg bg-black" controls playsInline preload="metadata" crossOrigin="anonymous" src={previewUrl} onLoadedMetadata={() => setPreviewError(false)} onCanPlay={() => setPreviewError(false)} onError={() => setPreviewError(true)}>Your browser cannot preview this video.</video>{previewError && <p className="mt-2 text-xs font-semibold text-amber-300">The URL is accepted, but this browser could not decode the response. Confirm that the host returns a video/* response with byte-range support.</p>}<p className="mt-2 break-all text-xs text-zinc-500">Ready to save: {previewUrl}</p></div>;
+  if (!previewUrl || !originalUrl) return null;
+  return <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-black/50 p-3"><p className="mb-2 text-xs font-bold uppercase tracking-[.14em] text-zinc-400">Video preview</p><video key={previewUrl} className="aspect-video w-full rounded-lg bg-black" controls playsInline preload="metadata" crossOrigin="anonymous" src={previewUrl} onLoadedMetadata={() => setPreviewError(false)} onCanPlay={() => setPreviewError(false)} onError={() => setPreviewError(true)}>Your browser cannot preview this video.</video>{previewError && <p className="mt-2 text-xs font-semibold text-amber-300">The HTTPS URL was accepted, but playback failed. The source was tried through ProMovie’s video proxy; verify the host allows video/* range requests.</p>}<p className="mt-2 break-all text-xs text-zinc-500">Ready to save: {originalUrl}</p></div>;
 }
 
 export function ProMovieMediaField({ token, label, value, onChange, kind, required = false }: Props) {

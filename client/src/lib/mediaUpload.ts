@@ -14,6 +14,16 @@ export function getPublicHttpsVideoUrl(value: string) {
   }
 }
 
+const PROXY_VIDEO_HOSTS = ["pixeldrain.com", "buzzheavier.com", "catbox.moe", "tmpfiles.org", "gofile.io", "streamtape.com", "mixdrop.co", "mixdrop.to", "bunny.net", "b-cdn.net", "cloudflarestream.com", "r2.dev", "cloudflarestorage.com"];
+
+export function getBrowserVideoSourceUrl(value: string) {
+  const normalized = getPublicHttpsVideoUrl(value);
+  if (!normalized) return null;
+  const host = new URL(normalized).hostname.toLowerCase();
+  if (!PROXY_VIDEO_HOSTS.some(base => host === base || host.endsWith(`.${base}`))) return normalized;
+  return `/api/promovie/video-proxy?url=${encodeURIComponent(normalized)}`;
+}
+
 export function isBuzzheavierLandingLink(value: string) {
   const url = getPublicHttpsVideoUrl(value);
   if (!url) return false;

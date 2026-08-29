@@ -16,7 +16,8 @@ describe("ProMovie administrator video preview", () => {
   it("renders the supplied Pixeldrain API URL without requiring an .mp4 suffix", () => {
     const url = "https://pixeldrain.com/api/file/TgSke7jP?download";
     const html = renderToStaticMarkup(createElement(PublicVideoPreview, { value: url }));
-    expect(html).toContain(`src="${url}"`);
+    expect(html).toContain('src="/api/promovie/video-proxy?url=https%3A%2F%2Fpixeldrain.com%2Fapi%2Ffile%2FTgSke7jP%3Fdownload"');
+    expect(html).toContain(`Ready to save: ${url}`);
     expect(html).toContain('crossorigin="anonymous"');
     expect(html).toContain("controls");
   });

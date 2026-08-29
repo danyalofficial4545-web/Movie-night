@@ -79,3 +79,6 @@
 - [ ] Confirm the latest ProMovie preview link and current published checkpoint for owner review.
 - [ ] Export the current ProMovie source to the connected GitHub repository `danyalofficial4545-web/earn-package-pro` without committing secrets or local environment files.
 - [ ] Verify the GitHub export contains the latest link-first video validation and nested Season code.
+- [x] Route supported external video previews through an allowlisted range-aware same-origin proxy when direct browser decoding fails.
+- [x] Verify the supplied Pixeldrain URL renders a proxy-backed native video preview while preserving the original URL for saving and playback resolution.
+- [ ] Republish the proxy-backed video preview repair and verify the live published admin flow.
