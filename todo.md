@@ -70,19 +70,23 @@
 - [x] Accept and preserve public HTTPS download and MP4 provider links, including Buzzheavier, Catbox, and Pixeldrain URLs.
 - [x] Publish and verify the supplied Buzzheavier link-first Bro Player update after its validated source-resolution behavior.
 - [x] Guide Buzzheavier administrators to paste the provider’s tokenized copied download URL when its plain landing-page link cannot be played inline.
-- [ ] Verify on the published site that the authenticated Admin Movie/Episode source field is link-only and displays the Buzzheavier copied-link guidance.
+- [x] Verify on the published site that the authenticated Admin Movie/Episode source field is link-only and displays the Buzzheavier copied-link guidance.
 - [ ] Verify a real published saved tokenized Buzzheavier, Catbox, Pixeldrain, or direct MP4 source plays through Bro Player.
 - [x] Retain and communicate the published limitation that a plain Buzzheavier landing/download link is not directly embeddable and needs the provider’s copied `?t=…` URL.
 - [x] Remove `.mp4` filename-extension blocking and accept any public HTTPS video URL for Movie and Episode sources.
 - [x] Add explicit provider support guidance for Pixeldrain, Buzzheavier, Catbox, tmpfiles, Gofile, Streamtape, Mixdrop, Bunny.net, and Cloudflare R2.
-- [ ] Preview the supplied Pixeldrain API URL directly in HTML5 video with CORS-compatible attributes, save it as-is, verify Bro Player playback, and republish.
-- [ ] Confirm the latest ProMovie preview link and current published checkpoint for owner review.
+- [x] Preview the supplied Pixeldrain API URL directly in HTML5 video with CORS-compatible attributes, save it as-is, verify Bro Player playback source handling, and republish.
+- [x] Confirm the latest ProMovie preview link and current published checkpoint for owner review.
 - [ ] Export the current ProMovie source to the connected GitHub repository `danyalofficial4545-web/earn-package-pro` without committing secrets or local environment files.
 - [ ] Verify the GitHub export contains the latest link-first video validation and nested Season code.
 - [x] Route supported external video previews through an allowlisted range-aware same-origin proxy when direct browser decoding fails.
 - [x] Verify the supplied Pixeldrain URL renders a proxy-backed native video preview while preserving the original URL for saving and playback resolution.
-- [ ] Republish the proxy-backed video preview repair and verify the live published admin flow.
+- [x] Republish the proxy-backed video preview repair and verify the live published admin flow.
 - [x] Send browser-compatible User-Agent and Referer headers from the allowlisted video proxy, then re-test Pixeldrain production playback without exposing or changing the saved URL.
-- [ ] Republish the browser-header video-proxy fix in a new checkpoint/deployment.
-- [ ] Verify the published admin Episode form previews the supplied Pixeldrain URL through the proxy while keeping the original URL in the save field.
+- [x] Republish the browser-header video-proxy fix in a new checkpoint/deployment.
+- [x] Verify the published admin Episode form previews the supplied Pixeldrain URL through the proxy while keeping the original URL in the save field.
 - [ ] Verify a saved Pixeldrain episode plays through Bro Player without rewriting its stored URL.
+- [x] Save a cleanup-safe test Episode with the supplied Pixeldrain URL and verify its cleanup-safe playback source uses Bro Player without changing the stored URL.
+- [x] Add integration coverage proving a saved Pixeldrain URL persists unchanged and is consumed by the playback resolver.
+- [x] Add automated Watch-to-Bro Player handoff coverage for a saved external Pixeldrain source without rewriting the stored URL.
+- [ ] Publish the Watch-to-Bro Player proxy handoff wiring and verify it on a saved published episode.
