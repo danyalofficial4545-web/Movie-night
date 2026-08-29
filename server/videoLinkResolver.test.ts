@@ -17,6 +17,11 @@ describe("ProMovie public video link resolver", () => {
     expect(pixeldrainPlaybackUrl("https://pixeldrain.com/u/abc123")).toBe("https://pixeldrain.com/api/file/abc123?download=1");
   });
 
+  it("preserves the supplied Pixeldrain API MP4 URL with its download query", async () => {
+    const supplied = "https://pixeldrain.com/api/file/TgSke7jP?download";
+    await expect(resolveVideoPlaybackLink(supplied)).resolves.toMatchObject({ originalUrl: supplied, playbackUrl: supplied, provider: "pixeldrain" });
+  });
+
   it("extracts the temporary playable MP4 from Buzzheavier’s documented landing and preview responses", async () => {
     const calls: string[] = [];
     const request = async (input: RequestInfo | URL) => {

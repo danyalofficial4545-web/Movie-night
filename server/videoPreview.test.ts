@@ -13,6 +13,14 @@ describe("ProMovie administrator video preview", () => {
     expect(html).toContain("Ready to save:");
   });
 
+  it("renders the supplied Pixeldrain API URL without requiring an .mp4 suffix", () => {
+    const url = "https://pixeldrain.com/api/file/TgSke7jP?download";
+    const html = renderToStaticMarkup(createElement(PublicVideoPreview, { value: url }));
+    expect(html).toContain(`src="${url}"`);
+    expect(html).toContain('crossorigin="anonymous"');
+    expect(html).toContain("controls");
+  });
+
   it("does not render a video preview for an incomplete or non-HTTPS value", () => {
     expect(renderToStaticMarkup(createElement(PublicVideoPreview, { value: "video.mp4" }))).toBe("");
     expect(renderToStaticMarkup(createElement(PublicVideoPreview, { value: "http://example.com/video.mp4" }))).toBe("");
