@@ -72,7 +72,10 @@
 - [x] Guide Buzzheavier administrators to paste the provider’s tokenized copied download URL when its plain landing-page link cannot be played inline.
 - [ ] Verify on the published site that the authenticated Admin Movie/Episode source field is link-only and displays the Buzzheavier copied-link guidance.
 - [ ] Verify a real published saved tokenized Buzzheavier, Catbox, Pixeldrain, or direct MP4 source plays through Bro Player.
-- [ ] Retain and communicate the published limitation that a plain Buzzheavier landing/download link is not directly embeddable and needs the provider’s copied `?t=…` URL.
+- [x] Retain and communicate the published limitation that a plain Buzzheavier landing/download link is not directly embeddable and needs the provider’s copied `?t=…` URL.
 - [x] Remove `.mp4` filename-extension blocking and accept any public HTTPS video URL for Movie and Episode sources.
 - [x] Add explicit provider support guidance for Pixeldrain, Buzzheavier, Catbox, tmpfiles, Gofile, Streamtape, Mixdrop, Bunny.net, and Cloudflare R2.
 - [ ] Preview the supplied Pixeldrain API URL directly in HTML5 video with CORS-compatible attributes, save it as-is, verify Bro Player playback, and republish.
+- [ ] Confirm the latest ProMovie preview link and current published checkpoint for owner review.
+- [ ] Export the current ProMovie source to the connected GitHub repository `danyalofficial4545-web/earn-package-pro` without committing secrets or local environment files.
+- [ ] Verify the GitHub export contains the latest link-first video validation and nested Season code.
