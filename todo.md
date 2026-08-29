@@ -82,3 +82,7 @@
 - [x] Route supported external video previews through an allowlisted range-aware same-origin proxy when direct browser decoding fails.
 - [x] Verify the supplied Pixeldrain URL renders a proxy-backed native video preview while preserving the original URL for saving and playback resolution.
 - [ ] Republish the proxy-backed video preview repair and verify the live published admin flow.
+- [x] Send browser-compatible User-Agent and Referer headers from the allowlisted video proxy, then re-test Pixeldrain production playback without exposing or changing the saved URL.
+- [ ] Republish the browser-header video-proxy fix in a new checkpoint/deployment.
+- [ ] Verify the published admin Episode form previews the supplied Pixeldrain URL through the proxy while keeping the original URL in the save field.
+- [ ] Verify a saved Pixeldrain episode plays through Bro Player without rewriting its stored URL.

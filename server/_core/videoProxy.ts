@@ -41,6 +41,8 @@ export function registerVideoProxy(app: Express) {
         headers: {
           ...(req.headers.range ? { range: req.headers.range } : {}),
           accept: "video/*,*/*;q=0.8",
+          "user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
+          referer: `${target.origin}/`,
         },
         signal: AbortSignal.timeout(30_000),
       });
