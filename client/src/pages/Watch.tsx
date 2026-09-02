@@ -9,16 +9,101 @@ import { ProMovieGuard, useProMovieMember } from "@/components/ProMovieGuard";
 import { trpc } from "@/lib/trpc";
 
 export function getWatchPlaybackSource(sourceUrl: string) {
-  return getBrowserVideoSourceUrl(sourceUrl) || "";
+  return sourceUrl.trim();
 }
 
 function WatchView() {
-  const [, params] = useRoute("/watch/:id"); const [, setLocation] = useLocation(); const { token, data: member } = useProMovieMember(); const movieId = Number(params?.id); const episodeId = Number(new URLSearchParams(window.location.search).get("episode")) || undefined; const [reward, setReward] = useState(0); const [ticket, setTicket] = useState(""); const activeSeconds = useRef(0); const utils = trpc.useUtils(); const movieQuery = trpc.promovie.movie.useQuery({ token, movieId }, { enabled: Boolean(token) && Number.isFinite(movieId) && !episodeId }); const episodeQuery = trpc.promovie.episode.useQuery({ token, episodeId: episodeId ?? 0 }, { enabled: Boolean(token) && Boolean(episodeId) }); const rewardMutation = trpc.promovie.rewardWatch.useMutation({ onSuccess: data => { if (data.earned > 0) { setReward(data.earned); utils.promovie.auth.me.invalidate(); window.setTimeout(() => setReward(0), 2600); } }, onError: () => undefined }); const startWatch = trpc.promovie.startWatch.useMutation({ onSuccess: data => setTicket(data.ticket), onError: () => undefined }); useEffect(() => { if (token && Number.isFinite(movieId)) startWatch.mutate({ token, movieId, episodeId }); }, [token, movieId, episodeId]); const download = trpc.promovie.download.useMutation({ onSuccess: media => { utils.promovie.auth.me.invalidate(); toast.success(`${media.title} unlocked in My Downloads.`); if (media.videoUrl) window.open(media.videoUrl, "_blank", "noopener,noreferrer"); }, onError: error => toast.error(error.message) });
-  const pending = episodeId ? episodeQuery.isLoading : movieQuery.isLoading; const media = episodeId && episodeQuery.data ? { movie: episodeQuery.data.movie, episode: episodeQuery.data.episode } : movieQuery.data ? { movie: movieQuery.data, episode: undefined } : undefined; const sourceQuery = trpc.promovie.playbackSource.useQuery({ token, movieId, episodeId }, { enabled: Boolean(token) && Boolean(media) });
+  const [, params] = useRoute("/watch/:id");
+  const [, setLocation] = useLocation();
+  const { token, data: member } = useProMovieMember();
+  const movieId = Number(params?.id);
+  const episodeId = Number(new URLSearchParams(window.location.search).get("episode")) || undefined;
+  const [reward, setReward] = useState(0);
+  const [ticket, setTicket] = useState("");
+  const activeSeconds = useRef(0);
+  const downloadSource = useRef("");
+  const utils = trpc.useUtils();
+  const movieQuery = trpc.promovie.movie.useQuery({ token, movieId }, { enabled: Boolean(token) && Number.isFinite(movieId) && !episodeId });
+  const episodeQuery = trpc.promovie.episode.useQuery({ token, episodeId: episodeId ?? 0 }, { enabled: Boolean(token) && Boolean(episodeId) });
+  const episodesQuery = trpc.promovie.movieFolder.useQuery({ token, movieId }, { enabled: Boolean(token) && Boolean(episodeId) });
+  const rewardMutation = trpc.promovie.rewardWatch.useMutation({
+    onSuccess: data => {
+      if (data.earned > 0) {
+        setReward(data.earned);
+        utils.promovie.auth.me.invalidate();
+        window.setTimeout(() => setReward(0), 2600);
+      }
+    },
+    onError: () => undefined,
+  });
+  const startWatch = trpc.promovie.startWatch.useMutation({ onSuccess: data => setTicket(data.ticket), onError: () => undefined });
+  useEffect(() => {
+    if (token && Number.isFinite(movieId)) startWatch.mutate({ token, movieId, episodeId });
+  }, [token, movieId, episodeId]);
+
+  const pending = episodeId ? episodeQuery.isLoading : movieQuery.isLoading;
+  const media = episodeId && episodeQuery.data ? { movie: episodeQuery.data.movie, episode: episodeQuery.data.episode } : movieQuery.data ? { movie: movieQuery.data, episode: undefined } : undefined;
+  const sourceQuery = trpc.promovie.playbackSource.useQuery({ token, movieId, episodeId }, { enabled: Boolean(token) && Boolean(media) });
+  const sourceUrl = sourceQuery.data?.sourceUrl || "";
+  const source = getWatchPlaybackSource(sourceUrl);
+  const title = media?.episode ? `${media.movie.title} · Episode ${media.episode.episodeNumber}: ${media.episode.title}` : media?.movie.title || "ProMovie";
+  const languageTags = media?.episode?.languageTags || media?.movie.languageTags || [];
+  const quality = media?.episode?.quality || media?.movie.quality || "Auto";
+  const nextEpisode = media?.episode && episodesQuery.data?.episodes ? episodesQuery.data.episodes.find(item => item.episodeNumber > media.episode!.episodeNumber) : undefined;
+
+  const registerActiveTime = (seconds: number) => {
+    activeSeconds.current += seconds;
+    if (activeSeconds.current >= 60 && ticket && !rewardMutation.isPending && media) {
+      activeSeconds.current -= 60;
+      rewardMutation.mutate({ token, movieId: media.movie.id, episodeId: media.episode?.id, ticket, activeSeconds: 60 });
+    }
+  };
+
+  const download = trpc.promovie.download.useMutation({
+    onSuccess: downloaded => {
+      utils.promovie.auth.me.invalidate();
+      const downloadUrl = downloaded.videoUrl || downloadSource.current || source;
+      if (downloadUrl) {
+        const link = document.createElement("a");
+        link.href = getBrowserVideoSourceUrl(downloadUrl) || downloadUrl;
+        link.download = `${downloaded.title || "promovie-video"}.mp4`;
+        link.rel = "noopener";
+        link.target = "_blank";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+      toast.success(`${downloaded.title} unlocked. Your download is starting.`);
+    },
+    onError: error => toast.error(error.message),
+  });
+  const downloadCurrentSource = (currentSource?: string) => {
+    downloadSource.current = currentSource || source;
+    download.mutate({ token, movieId: media?.movie.id || movieId });
+  };
+
   if (!member || pending) return <div className="grid min-h-screen place-items-center bg-[#0A0A0A]"><LoaderCircle className="h-7 w-7 animate-spin text-[#E50914]" /></div>;
   if (!media) return <div className="grid min-h-screen place-items-center bg-[#0A0A0A] text-white"><button onClick={() => setLocation("/")} className="secondary-action">Return to home</button></div>;
-  const sourceUrl = sourceQuery.data?.sourceUrl || ""; const source = getWatchPlaybackSource(sourceUrl); const title = media.episode ? `${media.movie.title} · Episode ${media.episode.episodeNumber}: ${media.episode.title}` : media.movie.title; const languageTags = media.episode?.languageTags || media.movie.languageTags; const quality = media.episode?.quality || media.movie.quality;
-  const registerActiveTime = (seconds: number) => { activeSeconds.current += seconds; if (activeSeconds.current >= 60 && ticket && !rewardMutation.isPending) { activeSeconds.current -= 60; rewardMutation.mutate({ token, movieId: media.movie.id, episodeId: media.episode?.id, ticket, activeSeconds: 60 }); } };
-  return <div className="min-h-screen bg-[#0A0A0A] text-white"><MemberHeader member={member} /><main className="container py-7"><button onClick={() => setLocation(media.episode ? `/movie/${media.movie.id}` : `/category/${media.movie.categoryId}`)} className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-zinc-400 transition hover:text-white"><ArrowLeft className="h-4 w-4" />Back to folder</button><div className="grid gap-7 xl:grid-cols-[1.35fr_.65fr]"><section>{source ? <BroPlayer source={source} title={title} poster={media.movie.bannerUrl || media.movie.posterUrl} quality={quality} qualityVariants={media.episode?.qualityVariants} onActiveTime={registerActiveTime} /> : <div className="grid aspect-video place-items-center rounded-[1.5rem] border border-white/[.08] bg-black text-center"><div>{sourceQuery.isLoading ? <LoaderCircle className="mx-auto h-14 w-14 animate-spin text-[#E50914]" /> : <PlayCircle className="mx-auto h-14 w-14 text-[#E50914]" />}<p className="mt-5 font-display text-3xl">{sourceQuery.isLoading ? "Loading video link" : "Video source pending"}</p><p className="mt-2 text-sm text-zinc-500">{sourceQuery.isLoading ? "Resolving the provider’s playable source…" : "The administrator has not attached this episode’s media yet."}</p></div></div>}{reward > 0 && <div className="fixed right-5 top-24 z-50 rounded-2xl border border-[#FFC107]/30 bg-black/85 px-4 py-3 text-sm font-black text-[#FFC107] shadow-xl backdrop-blur">+{reward} coins earned</div>}<div className="mt-6"><div className="flex flex-wrap gap-2">{languageTags.map(tag => <span key={tag} className="rounded-full border border-white/10 px-3 py-1 text-xs font-bold text-zinc-300">{tag}</span>)}<span className="rounded-full border border-white/10 px-3 py-1 text-xs font-bold text-zinc-300">{quality}</span><span className="rounded-full border border-white/10 px-3 py-1 text-xs font-bold text-zinc-300">{media.movie.releaseYear}</span></div><h1 className="mt-5 font-display text-5xl tracking-[-.06em]">{title}</h1><p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-400">{media.movie.description}</p></div></section><aside className="h-fit rounded-[1.5rem] border border-white/[.08] bg-zinc-950 p-6"><Coins className="h-7 w-7 text-[#FFC107]" /><h2 className="mt-5 font-display text-4xl tracking-[-.05em]">Earn while you watch</h2><p className="mt-3 text-sm leading-6 text-zinc-500">You earn <strong className="text-[#FFC107]">50 coins</strong> per active minute. Rewards stop when playback pauses or this tab is hidden.</p><div className="mt-7 rounded-2xl border border-[#FFC107]/16 bg-[#FFC107]/[.06] p-4"><p className="text-xs font-bold uppercase tracking-[.15em] text-[#f6d878]">Download cost</p><p className="mt-2 font-display text-5xl text-[#FFC107]">{media.movie.downloadCost.toLocaleString()}</p><p className="mt-1 text-xs text-[#f5df9a]/60">Current wallet: {member.coinBalance.toLocaleString()} coins</p></div><button disabled={download.isPending || !source} onClick={() => download.mutate({ token, movieId: media.movie.id })} className="primary-action mt-5 flex w-full items-center justify-center gap-2 disabled:opacity-50"><Download className="h-4 w-4" />{download.isPending ? "Unlocking…" : "Unlock download"}</button><div className="mt-7 flex gap-3 border-t border-white/[.07] pt-5 text-xs leading-5 text-zinc-500"><Info className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />Bro Player supports 0.25x–4x speed, tap-seek, left brightness gesture, right volume gesture, fullscreen, and source-based quality choices.</div></aside></div></main></div>;
+
+  return <div className="min-h-screen bg-[#0A0A0A] text-white">
+    <MemberHeader member={member} />
+    <main className="container py-7">
+      <button onClick={() => setLocation(media.episode ? `/movie/${media.movie.id}` : `/category/${media.movie.categoryId}`)} className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-zinc-400 transition hover:text-white"><ArrowLeft className="h-4 w-4" />Back to folder</button>
+      <div className="grid gap-7 xl:grid-cols-[1.35fr_.65fr]">
+        <section>
+          {source ? <BroPlayer source={source} title={title} poster={media.movie.bannerUrl || media.movie.posterUrl} quality={quality} qualityVariants={media.episode?.qualityVariants} onActiveTime={registerActiveTime} onNextEpisode={nextEpisode ? () => setLocation(`/watch/${media.movie.id}?episode=${nextEpisode.id}`) : undefined} onDownload={downloadCurrentSource} /> : <div className="grid aspect-video place-items-center rounded-[1.5rem] border border-white/[.08] bg-black text-center"><div>{sourceQuery.isLoading ? <LoaderCircle className="mx-auto h-14 w-14 animate-spin text-[#E50914]" /> : <PlayCircle className="mx-auto h-14 w-14 text-[#E50914]" />}<p className="mt-5 font-display text-3xl">{sourceQuery.isLoading ? "Loading video link" : "Video source pending"}</p><p className="mt-2 text-sm text-zinc-500">{sourceQuery.isLoading ? "Resolving the provider’s playable source…" : "The administrator has not attached this episode’s media yet."}</p></div></div>}
+          {reward > 0 && <div className="fixed right-5 top-24 z-50 rounded-2xl border border-[#FFC107]/30 bg-black/85 px-4 py-3 text-sm font-black text-[#FFC107] shadow-xl backdrop-blur">+{reward} coins earned</div>}
+          <div className="mt-6"><div className="flex flex-wrap gap-2">{languageTags.map(tag => <span key={tag} className="rounded-full border border-white/10 px-3 py-1 text-xs font-bold text-zinc-300">{tag}</span>)}<span className="rounded-full border border-white/10 px-3 py-1 text-xs font-bold text-zinc-300">{quality}</span><span className="rounded-full border border-white/10 px-3 py-1 text-xs font-bold text-zinc-300">{media.movie.releaseYear}</span></div><h1 className="mt-5 font-display text-5xl tracking-[-.06em]">{title}</h1><p className="mt-4 max-w-3xl text-sm leading-7 text-zinc-400">{media.movie.description}</p></div>
+        </section>
+        <aside className="h-fit rounded-[1.5rem] border border-white/[.08] bg-zinc-950 p-6">
+          <Coins className="h-7 w-7 text-[#FFC107]" /><h2 className="mt-5 font-display text-4xl tracking-[-.05em]">Earn while you watch</h2><p className="mt-3 text-sm leading-6 text-zinc-500">You earn <strong className="text-[#FFC107]">50 coins</strong> per active minute. Rewards stop when playback pauses or this tab is hidden.</p>
+          <div className="mt-7 rounded-2xl border border-[#FFC107]/16 bg-[#FFC107]/[.06] p-4"><p className="text-xs font-bold uppercase tracking-[.15em] text-[#f6d878]">Download cost</p><p className="mt-2 font-display text-5xl text-[#FFC107]">{media.movie.downloadCost.toLocaleString()}</p><p className="mt-1 text-xs text-[#f5df9a]/60">Current wallet: {member.coinBalance.toLocaleString()} coins</p></div>
+          <button disabled={download.isPending || !source} onClick={() => downloadCurrentSource(source)} className="primary-action mt-5 flex w-full items-center justify-center gap-2 disabled:opacity-50"><Download className="h-4 w-4" />{download.isPending ? "Unlocking…" : "Download current video"}</button>
+          <div className="mt-7 flex gap-3 border-t border-white/[.07] pt-5 text-xs leading-5 text-zinc-500"><Info className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />Bro Player supports 0.5x–2x speed, left brightness, right volume, horizontal ±10 second swipes, provider fallback, quality choices, Chromecast, fullscreen, and auto-next.</div>
+        </aside>
+      </div>
+    </main>
+  </div>;
 }
+
 export default function Watch() { return <ProMovieGuard><WatchView /></ProMovieGuard>; }

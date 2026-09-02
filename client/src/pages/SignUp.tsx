@@ -10,7 +10,7 @@ export default function SignUp() {
   const [, setLocation] = useLocation();
   const [form, setForm] = useState({ fullName: "", email: "", mobile: "", password: "" });
   const signUp = trpc.promovie.auth.signUp.useMutation({
-    onSuccess: ({ token }) => { saveProMovieToken(token); toast.success("Your account is ready. Welcome to ProMovie."); setLocation("/"); },
+    onSuccess: ({ token }) => { window.sessionStorage.removeItem("promovie_referrer_id"); saveProMovieToken(token); toast.success("Your account is ready. Welcome to ProMovie."); setLocation("/"); },
     onError: error => toast.error(error.message),
   });
   const submit = (event: FormEvent) => { event.preventDefault(); const referrerId = Number(window.sessionStorage.getItem("promovie_referrer_id")) || undefined; signUp.mutate({ ...form, referrerId }); };

@@ -260,19 +260,31 @@ export async function createDownload(input: { userId: number; movieId: number })
 }
 
 export async function creditReferralRewards(input: { newUserId: number; referrerId?: number | null }) {
-  if (!input.referrerId || input.referrerId === input.newUserId) return { awarded: false };
+  const referrerId = input.referrerId;
+  if (!referrerId || referrerId === input.newUserId) return { awarded: false };
   const db = await requireDb();
-  const referrer = (await db.select().from(users).where(eq(users.id, input.referrerId)).limit(1))[0];
+  const referrer = (await db.select().from(users).where(eq(users.id, referrerId)).limit(1))[0];
   if (!referrer) return { awarded: false };
+  const reward = 50;
+  let awarded = false;
   await db.transaction(async tx => {
-    await tx.update(users).set({ coinBalance: sql`${users.coinBalance} + 200` }).where(eq(users.id, input.newUserId));
-    await tx.update(users).set({ coinBalance: sql`${users.coinBalance} + 200`, referralCoinsEarned: sql`${users.referralCoinsEarned} + 200` }).where(eq(users.id, input.referrerId!));
+    // Updating the new member row serializes concurrent signup callbacks for the same account.
+    await tx.update(users).set({ updatedAt: new Date() }).where(eq(users.id, input.newUserId));
+    const alreadyAwarded = (await tx.select({ id: walletTransactions.id }).from(walletTransactions).where(and(
+      eq(walletTransactions.userId, input.newUserId),
+      eq(walletTransactions.activity, "referral_bonus"),
+      eq(walletTransactions.note, "Welcome referral reward"),
+    )).limit(1))[0];
+    if (alreadyAwarded) return;
+    awarded = true;
+    await tx.update(users).set({ coinBalance: sql`${users.coinBalance} + ${reward}` }).where(eq(users.id, input.newUserId));
+    await tx.update(users).set({ coinBalance: sql`${users.coinBalance} + ${reward}`, referralCoinsEarned: sql`${users.referralCoinsEarned} + ${reward}` }).where(eq(users.id, referrerId));
     await tx.insert(walletTransactions).values([
-      { userId: input.newUserId, activity: "referral_bonus", coinsDelta: 200, note: "Welcome referral reward" },
-      { userId: input.referrerId!, activity: "referral_bonus", coinsDelta: 200, note: "Referral reward for a new member" },
+      { userId: input.newUserId, activity: "referral_bonus", coinsDelta: reward, note: "Welcome referral reward" },
+      { userId: referrerId, activity: "referral_bonus", coinsDelta: reward, note: "Referral reward for a new member" },
     ]);
   });
-  return { awarded: true };
+  return { awarded, reward: awarded ? reward : 0 };
 }
 
 export async function listUsersForAdmin() {

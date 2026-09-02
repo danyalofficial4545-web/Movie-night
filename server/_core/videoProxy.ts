@@ -4,15 +4,21 @@ const allowedHosts = [
   "pixeldrain.com",
   "buzzheavier.com",
   "catbox.moe",
+  "files.catbox.moe",
+  "litterbox.catbox.moe",
   "tmpfiles.org",
   "gofile.io",
   "streamtape.com",
+  "streamtape.to",
+  "streamtape.cc",
   "mixdrop.co",
   "mixdrop.to",
+  "mixdrop.sx",
   "bunny.net",
   "b-cdn.net",
   "cloudflarestream.com",
   "r2.dev",
+  "r2.cloudflarestorage.com",
   "cloudflarestorage.com",
 ];
 
@@ -51,7 +57,11 @@ export function registerVideoProxy(app: Express) {
         return;
       }
       res.status(upstream.status);
-      const contentType = upstream.headers.get("content-type");
+      const contentType = upstream.headers.get("content-type")?.split(";", 1)[0]?.trim().toLowerCase() || "";
+      if (!contentType.startsWith("video/")) {
+        res.status(415).send("The external URL did not return a video/* response");
+        return;
+      }
       const contentLength = upstream.headers.get("content-length");
       const contentRange = upstream.headers.get("content-range");
       if (contentType) res.setHeader("Content-Type", contentType);
@@ -59,6 +69,7 @@ export function registerVideoProxy(app: Express) {
       if (contentRange) res.setHeader("Content-Range", contentRange);
       res.setHeader("Accept-Ranges", "bytes");
       res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Access-Control-Expose-Headers", "Accept-Ranges, Content-Length, Content-Range, Content-Type");
       res.setHeader("Cache-Control", "private, max-age=60");
       if (!upstream.body) {
         res.end();

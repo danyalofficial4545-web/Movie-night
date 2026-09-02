@@ -39,6 +39,7 @@ import { requireProMovieAdmin, requireProMovieUser } from "./promovieAuth";
 import { createProMovieVideoUploadTicket, supabaseAdmin, supabaseAuth, uploadProMovieAsset } from "./supabase";
 import { startPlaybackSession, verifyPlaybackHeartbeat } from "./playbackSessions";
 import { resolveVideoPlaybackLink } from "./videoLinkResolver";
+import { getLiveCricketMatches } from "./cricket";
 import { publicProcedure, router } from "./_core/trpc";
 
 const tokenInput = z.object({ token: z.string().min(20) });
@@ -82,7 +83,7 @@ export const appRouter = router({
         const { data: sessionData, error: signInError } = await supabaseAuth.auth.signInWithPassword({ email: input.email, password: input.password });
         if (signInError || !sessionData.session) throw new TRPCError({ code: "BAD_REQUEST", message: signInError?.message ?? "Account created, but automatic sign-in could not be completed." });
         const profile = await requireProMovieUser(sessionData.session.access_token);
-        await creditReferralRewards({ newUserId: profile.id, referrerId: input.referrerId });
+        await creditReferralRewards({ newUserId: profile.id, referrerId: profile.referredByUserId });
         return { token: sessionData.session.access_token, profile };
       }),
       signIn: publicProcedure.input(z.object({ email: z.string().email(), password: z.string().min(8) })).mutation(async ({ input }) => {
@@ -159,6 +160,12 @@ export const appRouter = router({
     download: publicProcedure.input(tokenInput.extend({ movieId: z.number().int().positive() })).mutation(async ({ input }) => {
       const profile = await requireProMovieUser(input.token);
       return createDownload({ userId: profile.id, movieId: input.movieId });
+    }),
+    cricket: router({
+      liveMatches: publicProcedure.input(tokenInput).query(async ({ input }) => {
+        await requireProMovieUser(input.token);
+        return getLiveCricketMatches();
+      }),
     }),
     withdrawal: router({
       create: publicProcedure.input(tokenInput.extend({ method: z.enum(["easypaisa", "jazzcash"]), accountName: z.string().trim().min(2).max(160), accountNumber: z.string().trim().min(8).max(32), coins: z.number().int().min(1000) })).mutation(async ({ input }) => {
