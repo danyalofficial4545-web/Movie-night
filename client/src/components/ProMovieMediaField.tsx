@@ -121,7 +121,7 @@ export function ProMovieMediaField({ token, label, value, onChange, kind, requir
         onChange={event => onChange(event.target.value)}
         onBlur={event => {
           const entered = event.target.value.trim();
-          if (kind === "video" && entered && !getPublicHttpsVideoUrl(entered)) toast.error("Use a complete public HTTPS video URL. A .mp4 extension is optional.");
+          if (kind === "video" && entered && !getPublicHttpsVideoUrl(entered)) toast.error("Use a complete public HTTPS video or provider link.");
         }}
         placeholder={kind === "video" ? "Paste a public HTTPS video or provider link" : "Upload file or paste a public https:// URL"}
         className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/40 px-3 py-3 text-sm text-white outline-none focus:border-[#E50914]"
