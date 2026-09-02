@@ -42,3 +42,7 @@ The exact supplied URL `https://pixeldrain.com/api/file/TgSke7jP?download` was t
 
 Set the variables from `.env.example` in the Vercel project. The required ProMovie server names are `DATABASE_URL`, `SUPABASE_URL`, `SUPABASE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `CRICKET_API_KEY`; add the imported Manus runtime variables only if the corresponding feature is used. Never expose the Supabase service-role key as a `VITE_*` browser variable.
 
+
+## Permanent deployment
+
+The repository is now linked to the permanent Vercel project `promovie` under the `danyalofficial4545-webs-projects` team. The production deployment from `main` is ready at [https://promovie-eight.vercel.app](https://promovie-eight.vercel.app). The project will redeploy automatically when changes are pushed to the linked GitHub repository. Supabase, database, and `CRICKET_API_KEY` values still need to be added to the Vercel project environment for authenticated features, referrals, storage, and live scores to operate in production.

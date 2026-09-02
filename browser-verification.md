@@ -16,3 +16,7 @@ A known-good public MP4 (`https://samplelib.com/preview/mp4/sample-5s.mp4`) load
 Temporary preview URL: https://3100-itqx63x8vjtv9y80zwgyd-78e54d72.us1.manus.computer/signup
 
 The public preview served the built ProMovie signup page successfully with the existing red/black theme and responsive form. The unauthenticated `/cricket` route correctly redirected to `/login`, confirming the new route is protected by the existing member guard.
+
+## Permanent Vercel deployment
+
+The linked Vercel project `promovie` deployed from GitHub `main` at commit `d3189244aac946431ff2a0903db34f02aa555a24` and reached `READY` with target `production`. Permanent URL: https://promovie-eight.vercel.app. The `/signup` route rendered successfully, and the root route correctly loaded the guarded ProMovie login shell.
