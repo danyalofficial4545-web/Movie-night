@@ -1,6 +1,7 @@
 import { Cast, Download, Expand, Gauge, Maximize2, Minimize2, Pause, Play, RotateCcw, RotateCw, Settings2, Sun, Volume2, X } from "lucide-react";
 import { PointerEvent as ReactPointerEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getBrowserVideoSourceUrl } from "@/lib/mediaUpload";
+import { getMediaKind, normalizeMediaUrl } from "@/lib/mediaKind";
 
 const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
 const qualityChoices = ["Auto", "1080p", "720p", "480p", "360p"];
@@ -58,6 +59,7 @@ export function BroPlayer({ source, title, poster, quality = "1080p", qualityVar
   const [nextCountdown, setNextCountdown] = useState<number | null>(null);
   const [mediaError, setMediaError] = useState(false);
   const [playbackSource, setPlaybackSource] = useState(source);
+  const isEmbed = getMediaKind(source) !== "direct";
 
   const variants = useMemo<Record<string, string>>(() => ({ Auto: source, ...(qualityVariants ?? {}) }), [qualityVariants, source]);
   const selectedSource = variants[qualityChoice] || source;
@@ -237,6 +239,18 @@ export function BroPlayer({ source, title, poster, quality = "1080p", qualityVar
     if (lastTime.current !== null) onActiveTime(Math.max(0, Math.min(3, player.currentTime - lastTime.current)));
     lastTime.current = player.currentTime;
   };
+
+  if (isEmbed) {
+    const embedUrl = normalizeMediaUrl(source);
+    return <div ref={container} className="relative aspect-video overflow-hidden rounded-[1.5rem] border border-white/[.1] bg-black shadow-[0_25px_80px_rgba(0,0,0,.55)]">
+      <iframe title={title} src={embedUrl} allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen className="h-full w-full border-0 bg-black" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-3 bg-gradient-to-b from-black/80 to-transparent p-4 sm:p-5">
+        <div className="min-w-0"><p className="text-[10px] font-black uppercase tracking-[.2em] text-[#ff5660]">In-site embed</p><h2 className="truncate text-sm font-bold text-white sm:text-base">{title}</h2></div>
+        <span className="shrink-0 rounded-full border border-white/10 bg-black/50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[.1em] text-zinc-300">{getMediaKind(source) === "telegram" ? "Telegram" : "External"}</span>
+      </div>
+      {onDownload && <button aria-label="Download current video" onClick={() => onDownload(source)} className="absolute bottom-4 right-4 rounded-xl border border-white/15 bg-black/70 px-3 py-2 text-xs font-bold text-white backdrop-blur hover:bg-black">Download</button>}
+    </div>;
+  }
 
   const handleMediaError = () => {
     if (!isUsingFallback && fallbackSource && fallbackSource !== selectedSource) {

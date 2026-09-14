@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { uploadVideoToSignedUrl } from "@/lib/directVideoUpload";
 import { canDirectlyUploadLocalVideo, getBrowserVideoSourceUrl, getPublicHttpsVideoUrl, isBuzzheavierLandingLink } from "@/lib/mediaUpload";
+import { getMediaKind, normalizeMediaUrl } from "@/lib/mediaKind";
 
 type Props = {
   token: string;
@@ -34,10 +35,11 @@ export function PublicVideoPreview({ value, source }: { value: string; source?: 
 
   if (!originalUrl || !playbackUrl) return null;
   const canFallback = Boolean(fallbackUrl && fallbackUrl !== originalUrl);
+  const mediaKind = getMediaKind(originalUrl);
 
   return <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-black/50 p-3">
     <p className="mb-2 text-xs font-bold uppercase tracking-[.14em] text-zinc-400">Video preview</p>
-    <video
+    {mediaKind !== "direct" ? <iframe title="External video preview" src={normalizeMediaUrl(originalUrl)} allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen className="aspect-video w-full rounded-lg border-0 bg-black" /> : <video
       key={playbackUrl}
       className="aspect-video w-full rounded-lg bg-black"
       controls
@@ -54,7 +56,8 @@ export function PublicVideoPreview({ value, source }: { value: string; source?: 
         }
         setPreviewError(true);
       }}
-    >Your browser cannot preview this video.</video>
+    >Your browser cannot preview this video.</video>}
+    {mediaKind !== "direct" && <p className="mt-2 text-xs font-semibold text-sky-200">{mediaKind === "telegram" ? "Telegram link detected: the preview stays inside ProMovie. For actual playback, paste the bot-generated direct file URL when available." : "External website detected: ProMovie will keep this page embedded inside the player."}</p>}
     {previewError && <p className="mt-2 text-xs font-semibold text-amber-300">The HTTPS URL was accepted, but the source did not return a browser-playable video/* response. ProMovie also tried its same-origin provider proxy; verify that the host is public and supports byte-range playback.</p>}
     <p className="mt-2 break-all text-xs text-zinc-500">Ready to save: {source ? value : originalUrl}</p>
   </div>;
