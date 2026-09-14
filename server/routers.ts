@@ -44,6 +44,7 @@ import { publicProcedure, router } from "./_core/trpc";
 
 const tokenInput = z.object({ token: z.string().min(20) });
 const mobileSchema = z.string().trim().min(8).max(32);
+const emailSchema = z.string().trim().email().transform(value => value.toLowerCase());
 const publicHttpsUrlSchema = z.string().trim().url().refine(value => value.startsWith("https://"), "Use a public HTTPS URL.");
 const optionalPublicHttpsUrlSchema = publicHttpsUrlSchema.optional().or(z.literal(""));
 const slugify = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -61,7 +62,7 @@ export const appRouter = router({
   promovie: router({
     auth: router({
       signUp: publicProcedure.input(z.object({
-        fullName: z.string().trim().min(2).max(120), email: z.string().trim().email(), mobile: mobileSchema, password: z.string().min(8).max(128), referrerId: z.number().int().positive().optional(),
+        fullName: z.string().trim().min(2).max(120), email: emailSchema, mobile: mobileSchema, password: z.string().min(8).max(128), referrerId: z.number().int().positive().optional(),
       })).mutation(async ({ input }) => {
         if (await getUserByMobile(input.mobile)) throw new TRPCError({ code: "CONFLICT", message: "One mobile number can only be used for one account." });
         if (isAdminEmail(input.email) && !isDesignatedAdmin(input.email, input.mobile)) {
@@ -86,9 +87,14 @@ export const appRouter = router({
         await creditReferralRewards({ newUserId: profile.id, referrerId: profile.referredByUserId });
         return { token: sessionData.session.access_token, profile };
       }),
-      signIn: publicProcedure.input(z.object({ email: z.string().email(), password: z.string().min(8) })).mutation(async ({ input }) => {
+      signIn: publicProcedure.input(z.object({ email: emailSchema, password: z.string().min(8) })).mutation(async ({ input }) => {
         const { data, error } = await supabaseAuth.auth.signInWithPassword({ email: input.email, password: input.password });
-        if (error || !data.session) throw new TRPCError({ code: "UNAUTHORIZED", message: error?.message ?? "Invalid email or password." });
+        if (error || !data.session) {
+          const message = /invalid login credentials/i.test(error?.message ?? "")
+            ? "Gmail or password is incorrect. Use the same Gmail that was registered in Supabase."
+            : error?.message ?? "Unable to sign in. Check the Supabase authentication configuration.";
+          throw new TRPCError({ code: "UNAUTHORIZED", message });
+        }
         const profile = await requireProMovieUser(data.session.access_token);
         return { token: data.session.access_token, profile };
       }),

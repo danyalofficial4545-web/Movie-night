@@ -17,6 +17,7 @@ describe("ProMovie role policy", () => {
 
   it("recognizes only the configured administrator email and mobile identity", () => {
     expect(isDesignatedAdmin("muhammaddanyal4545@gmail.com", "03311332670")).toBe(true);
+    expect(isDesignatedAdmin(" MUHAMMADDANYAL4545@GMAIL.COM ", "+92 331-1332670")).toBe(true);
     expect(isDesignatedAdmin("muhammaddanyal4545@gmail.com", "03000000000")).toBe(false);
   });
 

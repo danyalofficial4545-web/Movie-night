@@ -32,8 +32,14 @@ export function isAdminEmail(email?: string | null) {
   return email?.trim().toLowerCase() === ADMIN_EMAIL;
 }
 
+function normalizeAdminMobile(mobile?: string | null) {
+  const digits = mobile?.replace(/[^0-9+]/g, "") ?? "";
+  if (digits === "+92" + ADMIN_MOBILE.slice(1)) return ADMIN_MOBILE;
+  return digits;
+}
+
 export function isDesignatedAdmin(email?: string | null, mobile?: string | null) {
-  return isAdminEmail(email) && mobile?.trim() === ADMIN_MOBILE;
+  return isAdminEmail(email) && normalizeAdminMobile(mobile) === ADMIN_MOBILE;
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
